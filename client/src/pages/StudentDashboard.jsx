@@ -123,7 +123,7 @@ export default function StudentDashboard() {
   };
 
   const statusBadge = (status) => {
-    const map = { PRESENT: 'badge-present', ABSENT: 'badge-absent', LATE: 'badge-late', EXCUSED: 'badge-excused' };
+    const map = { PRESENT: 'badge-present', ABSENT: 'badge-absent', CANCELLED: 'bg-white/10 text-white border-white/20' };
     return map[status] || '';
   };
 
@@ -315,7 +315,7 @@ export default function StudentDashboard() {
                 <div className="mb-4 flex gap-4 text-sm">
                   <span className="text-success">Present: <strong>{attDetail.filter(a => a.STATUS === 'PRESENT').length}</strong></span>
                   <span className="text-danger">Absent: <strong>{attDetail.filter(a => a.STATUS === 'ABSENT').length}</strong></span>
-                  <span className="text-warning">Late: <strong>{attDetail.filter(a => a.STATUS === 'LATE').length}</strong></span>
+                  <span className="text-text-muted">Cancelled: <strong>{attDetail.filter(a => a.STATUS === 'CANCELLED').length}</strong></span>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
