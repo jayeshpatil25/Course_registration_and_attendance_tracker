@@ -20,6 +20,7 @@ export default function FacultyDashboard() {
 
   // Approval state
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [pendingDrops, setPendingDrops] = useState([]);
   const [approvalLoading, setApprovalLoading] = useState(false);
 
   // Student detail modal
@@ -34,8 +35,14 @@ export default function FacultyDashboard() {
 
   const fetchPending = () => {
     setApprovalLoading(true);
-    api.get(`/registration/pending-approvals/${user.id}`)
-      .then(({ data }) => setPendingApprovals(data))
+    Promise.all([
+      api.get(`/registration/pending-approvals/${user.id}`),
+      api.get(`/registration/pending-drops/${user.id}`)
+    ])
+      .then(([approvalsRes, dropsRes]) => {
+        setPendingApprovals(approvalsRes.data);
+        setPendingDrops(dropsRes.data);
+      })
       .catch(console.error)
       .finally(() => setApprovalLoading(false));
   };
@@ -118,6 +125,21 @@ export default function FacultyDashboard() {
     } catch { alert('Failed to reject.'); }
   };
 
+  const handleApproveDrop = async (regId) => {
+    try {
+      await api.put(`/registration/${regId}/approve-drop`);
+      fetchPending();
+    } catch { alert('Failed to approve drop.'); }
+  };
+
+  const handleRejectDrop = async (regId) => {
+    if (!confirm('Reject this drop request?')) return;
+    try {
+      await api.put(`/registration/${regId}/reject-drop`);
+      fetchPending();
+    } catch { alert('Failed to reject drop.'); }
+  };
+
   // Open student detail modal
   const openStudentDetail = async (studentId) => {
     setStudentDetailLoading(true);
@@ -140,12 +162,11 @@ export default function FacultyDashboard() {
     }
   };
 
-  const statusOptions = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
+  const statusOptions = ['PRESENT', 'ABSENT', 'CANCELLED'];
   const statusColors = {
     PRESENT: 'bg-success/20 text-success border-success/40',
     ABSENT: 'bg-danger/20 text-danger border-danger/40',
-    LATE: 'bg-warning/20 text-warning border-warning/40',
-    EXCUSED: 'bg-accent/20 text-accent border-accent/40',
+    CANCELLED: 'bg-white/10 text-text-muted border-white/20',
   };
 
   const presentCount = Object.values(attendanceState).filter((v) => v === 'PRESENT').length;
@@ -165,7 +186,7 @@ export default function FacultyDashboard() {
         <div className="mb-6 flex gap-2">
           {[
             { key: 'attendance', label: '📝 Mark Attendance' },
-            { key: 'approvals', label: `✅ Approvals ${pendingApprovals.length > 0 ? `(${pendingApprovals.length})` : ''}` },
+            { key: 'approvals', label: `✅ Approvals ${(pendingApprovals.length + pendingDrops.length) > 0 ? `(${pendingApprovals.length + pendingDrops.length})` : ''}` },
           ].map((t) => (
             <button
               key={t.key}
@@ -201,8 +222,9 @@ export default function FacultyDashboard() {
                 <input type="date" className="input-field" value={date} onChange={(e) => setDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} id="faculty-date-input" />
               </div>
               <div className="flex items-end gap-2">
-                <button onClick={() => markAll('PRESENT')} className="btn-ghost flex-1 text-xs" id="mark-all-present">All Present</button>
-                <button onClick={() => markAll('ABSENT')} className="btn-ghost flex-1 text-xs" id="mark-all-absent">All Absent</button>
+                <button onClick={() => markAll('PRESENT')} className="btn-ghost flex-1 text-xs px-2" id="mark-all-present">All Present</button>
+                <button onClick={() => markAll('ABSENT')} className="btn-ghost flex-1 text-xs px-2" id="mark-all-absent">All Absent</button>
+                <button onClick={() => markAll('CANCELLED')} className="btn-ghost flex-1 text-xs px-2" id="mark-all-cancelled">Cancelled</button>
               </div>
             </div>
 
@@ -271,42 +293,88 @@ export default function FacultyDashboard() {
           <div className="animate-fade-in-up">
             {approvalLoading ? (
               <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton h-16 rounded-xl" />)}</div>
-            ) : pendingApprovals.length === 0 ? (
+            ) : pendingApprovals.length === 0 && pendingDrops.length === 0 ? (
               <div className="glass-card text-center text-text-muted">
-                No pending approvals. All registrations have been reviewed. ✅
+                No pending requests. All registrations and drops have been reviewed. ✅
               </div>
             ) : (
-              <div className="space-y-2">
-                {pendingApprovals.map((p, i) => (
-                  <div key={p.REGISTRATION_ID} className="glass-card !p-4 animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-light">
-                          {p.FIRST_NAME?.[0]}{p.LAST_NAME?.[0]}
+              <div className="space-y-6">
+                {pendingApprovals.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 text-lg font-bold text-text-main">Registration Requests ({pendingApprovals.length})</h3>
+                    <div className="space-y-2">
+                      {pendingApprovals.map((p, i) => (
+                        <div key={p.REGISTRATION_ID} className="glass-card !p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-light">
+                                {p.FIRST_NAME?.[0]}{p.LAST_NAME?.[0]}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-text-main">{p.FIRST_NAME} {p.LAST_NAME}</p>
+                                <p className="text-xs text-text-muted">{p.EMAIL}</p>
+                                <p className="mt-0.5 text-xs">
+                                  <span className="text-accent">{p.COURSE_CODE}</span>
+                                  <span className="text-text-muted"> — Sec {p.SECTION_NAME} • Registration Request</span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => openStudentDetail(p.STUDENT_ID)} className="rounded-lg bg-primary/20 px-3 py-2 text-xs font-semibold text-primary-light hover:bg-primary/30 transition-all">
+                                👁 View Profile
+                              </button>
+                              <button onClick={() => handleApprove(p.REGISTRATION_ID)} className="rounded-lg bg-success/20 px-4 py-2 text-xs font-semibold text-success hover:bg-success/30 transition-all">
+                                ✓ Approve
+                              </button>
+                              <button onClick={() => handleReject(p.REGISTRATION_ID)} className="rounded-lg bg-danger/20 px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/30 transition-all">
+                                ✕ Reject
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-text-main">{p.FIRST_NAME} {p.LAST_NAME}</p>
-                          <p className="text-xs text-text-muted">{p.EMAIL}</p>
-                          <p className="mt-0.5 text-xs">
-                            <span className="text-accent">{p.COURSE_CODE}</span>
-                            <span className="text-text-muted"> — Sec {p.SECTION_NAME} • {p.SEMESTER}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => openStudentDetail(p.STUDENT_ID)} className="rounded-lg bg-primary/20 px-3 py-2 text-xs font-semibold text-primary-light hover:bg-primary/30 transition-all">
-                          👁 View Profile
-                        </button>
-                        <button onClick={() => handleApprove(p.REGISTRATION_ID)} className="rounded-lg bg-success/20 px-4 py-2 text-xs font-semibold text-success hover:bg-success/30 transition-all">
-                          ✓ Approve
-                        </button>
-                        <button onClick={() => handleReject(p.REGISTRATION_ID)} className="rounded-lg bg-danger/20 px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/30 transition-all">
-                          ✕ Reject
-                        </button>
-                      </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+                
+                {pendingDrops.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 text-lg font-bold text-text-main">Drop Course Requests ({pendingDrops.length})</h3>
+                    <div className="space-y-2">
+                      {pendingDrops.map((p, i) => (
+                        <div key={p.REGISTRATION_ID} className="glass-card !p-4 border border-danger/30">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-danger/20 text-sm font-bold text-danger">
+                                {p.FIRST_NAME?.[0]}{p.LAST_NAME?.[0]}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-text-main">{p.FIRST_NAME} {p.LAST_NAME}</p>
+                                <p className="text-xs text-text-muted">{p.EMAIL}</p>
+                                <p className="mt-0.5 text-xs">
+                                  <span className="text-danger font-semibold">Drop Request: </span>
+                                  <span className="text-accent">{p.COURSE_CODE}</span>
+                                  <span className="text-text-muted"> — Sec {p.SECTION_NAME}</span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => openStudentDetail(p.STUDENT_ID)} className="rounded-lg bg-primary/20 px-3 py-2 text-xs font-semibold text-primary-light hover:bg-primary/30 transition-all">
+                                👁 View Profile
+                              </button>
+                              <button onClick={() => handleApproveDrop(p.REGISTRATION_ID)} className="rounded-lg bg-danger/20 px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/30 transition-all">
+                                ✓ Approve Drop
+                              </button>
+                              <button onClick={() => handleRejectDrop(p.REGISTRATION_ID)} className="rounded-lg bg-white/10 px-4 py-2 text-xs font-semibold text-text-muted hover:bg-white/20 transition-all">
+                                ✕ Reject Drop
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -375,7 +443,7 @@ export default function FacultyDashboard() {
                         <span className="text-text-muted">
                           {new Date(a.ATTENDANCE_DATE).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — {a.COURSE_CODE}
                         </span>
-                        <span className={`badge ${a.STATUS === 'PRESENT' ? 'badge-present' : a.STATUS === 'ABSENT' ? 'badge-absent' : 'badge-late'}`}>
+                        <span className={`badge ${a.STATUS === 'PRESENT' ? 'badge-present' : a.STATUS === 'ABSENT' ? 'badge-absent' : 'bg-white/10 text-white border-white/20'}`}>
                           {a.STATUS}
                         </span>
                       </div>

@@ -2,10 +2,10 @@
  * Setup script — drops tables, recreates schema + packages, seeds data.
  * Uses ODD-2025 / EVEN-2025, 4 instructors, admin user, approval workflow.
  */
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const oracledb = require('oracledb');
 const fs = require('fs');
-const path = require('path');
 const bcrypt = require('bcryptjs');
 
 async function run() {

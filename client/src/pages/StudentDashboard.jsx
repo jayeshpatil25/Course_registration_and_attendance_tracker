@@ -11,7 +11,6 @@ export default function StudentDashboard() {
 
   // Registration form
   const [showRegForm, setShowRegForm] = useState(false);
-  const [semesters, setSemesters] = useState([]);
   const [courses, setCourses] = useState([]);
   const [sections, setSections] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -58,17 +57,10 @@ export default function StudentDashboard() {
 
   useEffect(() => { fetchRegistrations(); }, [fetchRegistrations]);
 
-  // Load semesters
+  // Load active semester (admin-controlled, no user choice)
   useEffect(() => {
-    api.get('/lookup/semesters').then(({ data }) => {
-      setSemesters(data);
-      // Default to active semester
-      api.get('/lookup/active-semester').then(({ data: asData }) => {
-        const active = asData.semester;
-        setSemester(active || (data.length > 0 ? data[0].value : ''));
-      }).catch(() => {
-        if (data.length > 0 && !semester) setSemester(data[0].value);
-      });
+    api.get('/lookup/active-semester').then(({ data }) => {
+      setSemester(data.semester || '');
     }).catch(console.error);
   }, []);
 
@@ -91,7 +83,7 @@ export default function StudentDashboard() {
     e.preventDefault();
     setRegError(''); setRegSuccess(''); setRegLoading(true);
     try {
-      await api.post('/registration', { sectionId: Number(selectedSection), semester });
+      await api.post('/registration', { sectionId: Number(selectedSection) });
       setRegSuccess('Registration submitted — pending faculty approval.');
       setShowRegForm(false);
       setSelectedCourse(''); setSelectedSection('');
@@ -185,13 +177,11 @@ export default function StudentDashboard() {
         {showRegForm && (
           <div className="glass-card mb-6 animate-fade-in-up">
             <h4 className="mb-4 font-semibold text-text-main">Register for a Course</h4>
-            <form onSubmit={handleRegister} className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-              <div>
-                <label className="mb-1 block text-xs text-text-muted">Semester</label>
-                <select className="input-field" value={semester} onChange={(e) => { setSemester(e.target.value); setSelectedCourse(''); setSelectedSection(''); }} id="reg-semester">
-                  {semesters.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
+            <div className="mb-3 flex items-center gap-2 text-sm">
+              <span className="text-text-muted">Active Semester:</span>
+              <span className="rounded-lg bg-primary/20 px-3 py-1 font-semibold text-primary-light">{semester}</span>
+            </div>
+            <form onSubmit={handleRegister} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-xs text-text-muted">Course</label>
                 <select className="input-field" value={selectedCourse} onChange={(e) => { setSelectedCourse(e.target.value); setSelectedSection(''); }} id="reg-course">
@@ -238,12 +228,20 @@ export default function StudentDashboard() {
                     <h4 className="font-bold text-text-main">{reg.COURSE_CODE}</h4>
                     <p className="text-sm text-text-muted">{reg.COURSE_NAME}</p>
                   </div>
-                  <div className="flex gap-1">
-                    <span className={`badge ${reg.STATUS === 'ACTIVE' ? 'badge-present' : reg.STATUS === 'PENDING' ? 'badge-pending' : reg.STATUS === 'DROPPED' ? 'badge-absent' : 'badge-excused'}`}>
-                      {reg.STATUS}
-                    </span>
-                    {reg.STATUS === 'PENDING' && (
-                      <span className="badge badge-pending">Awaiting Approval</span>
+                  <div className="flex items-center justify-between">
+                    <span className={`badge ${
+                      reg.STATUS === 'ACTIVE' ? 'badge-present' : 
+                      reg.STATUS === 'PENDING' ? 'badge-pending' : 
+                      reg.STATUS === 'DROP_PENDING' ? 'badge-absent' :
+                      reg.STATUS === 'DROPPED' ? 'badge-absent' : 
+                      reg.STATUS === 'CANCELLED' ? 'badge-absent' : 'badge-absent'
+                    }`}>{reg.STATUS}</span>
+                    
+                    {reg.STATUS === 'ACTIVE' && (
+                      <button onClick={() => setDropTarget(reg.REGISTRATION_ID)} className="btn-danger p-2 px-3 text-xs ml-2">Request Drop</button>
+                    )}
+                    {reg.STATUS === 'DROP_PENDING' && (
+                      <button disabled className="btn-danger p-2 px-3 text-xs opacity-50 cursor-not-allowed ml-2">Drop Pending</button>
                     )}
                   </div>
                 </div>
@@ -290,11 +288,6 @@ export default function StudentDashboard() {
                   {reg.STATUS === 'ACTIVE' && (
                     <button onClick={() => openAttendanceDetail(reg.SECTION_ID)} className="text-xs text-primary-light hover:underline">
                       📋 View Attendance
-                    </button>
-                  )}
-                  {(reg.STATUS === 'ACTIVE' || reg.STATUS === 'PENDING') && (
-                    <button onClick={() => setDropTarget(reg.REGISTRATION_ID)} className="text-xs text-danger hover:underline">
-                      {reg.STATUS === 'PENDING' ? 'Cancel Request' : 'Drop Course'}
                     </button>
                   )}
                 </div>
@@ -352,12 +345,12 @@ export default function StudentDashboard() {
       {dropTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card w-full max-w-sm animate-fade-in-up text-center">
-            <h3 className="mb-2 text-lg font-bold text-text-main">Confirm Drop</h3>
-            <p className="mb-6 text-sm text-text-muted">Are you sure you want to drop this course? This action cannot be undone.</p>
+            <h3 className="mb-2 text-lg font-bold text-text-main">Request Drop</h3>
+            <p className="mb-6 text-sm text-text-muted">Are you sure you want to request to drop this course? Faculty approval is required.</p>
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => setDropTarget(null)} className="btn-ghost text-sm">Cancel</button>
-              <button onClick={handleDrop} className="rounded-xl bg-danger px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-danger/80">
-                Drop Course
+              <button onClick={handleDrop} className="rounded-xl bg-danger px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-danger/80" disabled={regLoading}>
+                {regLoading ? 'Submitting…' : 'Confirm Drop Request'}
               </button>
             </div>
           </div>

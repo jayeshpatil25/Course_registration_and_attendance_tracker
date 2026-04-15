@@ -303,11 +303,12 @@ CREATE OR REPLACE PACKAGE BODY ATTENDANCE_PKG AS
         v_present   NUMBER;
     BEGIN
         SELECT COUNT(*),
-               COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END)
+               COUNT(CASE WHEN status = 'PRESENT' THEN 1 END)
         INTO v_total, v_present
         FROM ATTENDANCE
         WHERE student_id = p_student_id
-          AND section_id = p_section_id;
+          AND section_id = p_section_id
+          AND status IN ('PRESENT', 'ABSENT');
 
         IF v_total = 0 THEN
             RETURN 0;

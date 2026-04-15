@@ -7,14 +7,30 @@ const oracledb = require('oracledb');
 const db = require('../config/database');
 const { verifyToken } = require('../middleware/auth');
 
-// GET /api/lookup/semesters — fixed semester list
-router.get('/semesters', verifyToken, (_req, res) => {
-  return res.json([
-    { value: 'ODD-2025', label: 'Odd Semester 2025' },
-    { value: 'EVEN-2025', label: 'Even Semester 2025' },
-    { value: 'ODD-2024', label: 'Odd Semester 2024' },
-    { value: 'EVEN-2024', label: 'Even Semester 2024' },
-  ]);
+// GET /api/lookup/semesters — returns only the active semester
+router.get('/semesters', verifyToken, async (_req, res) => {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const result = await conn.execute(
+      `SELECT semester FROM ACTIVE_SEMESTER WHERE id = 1`,
+      [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    if (result.rows.length > 0 && result.rows[0].SEMESTER) {
+      const sem = result.rows[0].SEMESTER;
+      // Format label from value (e.g. 'ODD-2025' -> 'Odd Semester 2025')
+      const parts = sem.split('-');
+      const label = `${parts[0].charAt(0)}${parts[0].slice(1).toLowerCase()} Semester ${parts[1]}`;
+      return res.json([{ value: sem, label }]);
+    }
+    return res.json([]);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error.' });
+  } finally {
+    if (conn) await conn.close();
+  }
 });
 
 // GET /api/lookup/departments
@@ -150,7 +166,7 @@ router.get('/section-students/:sectionId', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/lookup/instructor-sections/:instructorId  — sections coordinated by an instructor
+// GET /api/lookup/instructor-sections/:instructorId  — sections coordinated by an instructor (active semester only)
 router.get('/instructor-sections/:instructorId', verifyToken, async (req, res) => {
   const { instructorId } = req.params;
   let conn;
@@ -163,7 +179,8 @@ router.get('/instructor-sections/:instructorId', verifyToken, async (req, res) =
        JOIN SECTION s ON s.section_id = sc.section_id
        JOIN COURSE  c ON c.course_id  = s.course_id
        WHERE sc.instructor_id = :iid
-       ORDER BY s.semester DESC, c.course_code`,
+         AND s.semester = (SELECT semester FROM ACTIVE_SEMESTER WHERE id = 1)
+       ORDER BY c.course_code`,
       { iid: Number(instructorId) },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
