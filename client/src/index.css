@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/* ── Custom Design Tokens ─────────────────────────────── */
+@theme {
+  --color-primary: #4f46e5;
+  --color-primary-light: #6366f1;
+  --color-primary-dark: #3730a3;
+  --color-accent: #06b6d4;
+  --color-surface: #0f172a;
+  --color-surface-light: #1e293b;
+  --color-surface-card: #1e293b;
+  --color-text-main: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+}
+
+/* ── Base ──────────────────────────────────────────────── */
+body {
+  @apply bg-surface text-text-main antialiased;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Glassmorphism Card ────────────────────────────────── */
+.glass-card {
+  @apply rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-md transition-all duration-300;
+}
+.glass-card:hover {
+  @apply border-primary-light/30 shadow-primary/10 shadow-2xl;
+}
+
+/* ── Gradient Button ───────────────────────────────────── */
+.btn-primary {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-6 py-3 font-semibold text-white shadow-lg transition-all duration-200;
+}
+.btn-primary:hover {
+  @apply scale-[1.03] shadow-primary/30 shadow-xl;
+}
+.btn-primary:active {
+  @apply scale-[0.98];
+}
+.btn-primary:disabled {
+  @apply cursor-not-allowed opacity-50;
+}
+
+/* ── Ghost Button ──────────────────────────────────────── */
+.btn-ghost {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/20 bg-transparent px-5 py-2.5 font-medium text-text-main transition-all duration-200;
+}
+.btn-ghost:hover {
+  @apply border-primary-light bg-white/5;
+}
+
+/* ── Input ─────────────────────────────────────────────── */
+.input-field {
+  @apply w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-text-main placeholder-text-muted outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/30;
+}
+
+/* Fix dropdown options visibility */
+.input-field option,
+select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* Pending badge */
+.badge-pending {
+  @apply bg-warning/20 text-warning;
+}
+
+/* ── Status Badge ──────────────────────────────────────── */
+.badge {
+  @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+}
+.badge-present {
+  @apply bg-success/20 text-success;
+}
+.badge-absent {
+  @apply bg-danger/20 text-danger;
+}
+.badge-late {
+  @apply bg-warning/20 text-warning;
+}
+.badge-excused {
+  @apply bg-accent/20 text-accent;
+}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  @apply rounded-lg bg-gradient-to-r from-surface-light via-white/10 to-surface-light;
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
