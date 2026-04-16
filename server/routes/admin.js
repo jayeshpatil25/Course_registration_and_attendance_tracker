@@ -179,14 +179,14 @@ router.post('/courses', verifyToken, authorize('admin'), async (req, res) => {
     conn = await db.getConnection();
     const result = await conn.execute(
       `INSERT INTO COURSE (course_code, course_name, dept_id, credits, description, course_type)
-       VALUES (:code, :name, :dept, :credits, :desc, :ctype)
+       VALUES (:code, :name, :dept, :credits, :descr, :ctype)
        RETURNING course_id INTO :id`,
       {
         code: courseCode.trim().toUpperCase(),
         name: courseName.trim(),
         dept: Number(deptId),
         credits: Number(credits),
-        desc: description ? description.trim() : null,
+        descr: description ? description.trim() : null,
         ctype: cType,
         id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
@@ -203,6 +203,65 @@ router.post('/courses', verifyToken, authorize('admin'), async (req, res) => {
     }
     if (err.errorNum === 2290 && err.message.includes('CHK_COURSE_CREDITS')) {
        return res.status(400).json({ error: 'Credits must be between 1 and 6.' });
+    }
+    return res.status(500).json({ error: 'Internal server error.' });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// POST /api/admin/sections — create a section and assign a coordinator
+router.post('/sections', verifyToken, authorize('admin'), async (req, res) => {
+  const { courseId, sectionName, semester, capacity, room, schedule, coordinatorId } = req.body;
+
+  if (!courseId || !sectionName || !semester || !capacity) {
+    return res.status(400).json({ error: 'Course, Section Name, Semester, and Capacity are required.' });
+  }
+
+  let conn;
+  try {
+    conn = await db.getConnection();
+    
+    // Insert section first
+    const secResult = await conn.execute(
+      `INSERT INTO SECTION (course_id, section_name, semester, capacity, room, schedule)
+       VALUES (:cid, :sname, :sem, :cap, :room, :sched)
+       RETURNING section_id INTO :id`,
+      {
+        cid: Number(courseId),
+        sname: sectionName.trim().toUpperCase(),
+        sem: semester.trim().toUpperCase(),
+        cap: Number(capacity),
+        room: room ? room.trim() : null,
+        sched: schedule ? schedule.trim() : null,
+        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+      },
+      { autoCommit: false }
+    );
+    
+    const newSectionId = secResult.outBinds.id[0];
+
+    // Assign coordinator if provided
+    if (coordinatorId) {
+      await conn.execute(
+        `INSERT INTO SECTION_COORDINATOR (section_id, instructor_id)
+         VALUES (:sid, :iid)`,
+        { sid: newSectionId, iid: Number(coordinatorId) },
+        { autoCommit: false }
+      );
+    }
+    
+    await conn.execute('COMMIT');
+
+    return res.status(201).json({
+      message: 'Section created and coordinator assigned successfully.',
+      sectionId: newSectionId
+    });
+  } catch (err) {
+    console.error('Create section error:', err);
+    if (conn) await conn.execute('ROLLBACK');
+    if (err.errorNum === 1) {
+      return res.status(409).json({ error: 'Section already exists for this course and semester.' });
     }
     return res.status(500).json({ error: 'Internal server error.' });
   } finally {

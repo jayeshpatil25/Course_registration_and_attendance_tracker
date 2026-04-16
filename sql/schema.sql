@@ -93,9 +93,12 @@ CREATE TABLE STUDENT (
     semester        NUMBER(2)       DEFAULT 1,
     phone           VARCHAR2(20),
     dob             DATE,
+    fa_id           NUMBER(10),
     created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT fk_student_dept
         FOREIGN KEY (dept_id) REFERENCES DEPT(dept_id),
+    CONSTRAINT fk_student_fa
+        FOREIGN KEY (fa_id) REFERENCES INSTRUCTOR(instructor_id),
     CONSTRAINT chk_student_semester
         CHECK (semester BETWEEN 1 AND 12),
     CONSTRAINT chk_student_enrollment_yr
@@ -114,12 +117,15 @@ CREATE TABLE COURSE (
     course_name     VARCHAR2(200)   NOT NULL,
     dept_id         NUMBER(10)      NOT NULL,
     credits         NUMBER(2)       NOT NULL,
+    course_type     VARCHAR2(15)    DEFAULT 'THEORY' NOT NULL,
     description     VARCHAR2(1000),
     created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT fk_course_dept
         FOREIGN KEY (dept_id) REFERENCES DEPT(dept_id),
     CONSTRAINT chk_course_credits
-        CHECK (credits BETWEEN 1 AND 6)
+        CHECK (credits BETWEEN 1 AND 6),
+    CONSTRAINT chk_course_type
+        CHECK (course_type IN ('THEORY', 'PRACTICAL'))
 )
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);

@@ -33,6 +33,18 @@ export default function AdminDashboard() {
     courseType: 'THEORY'
   });
 
+  // Section Modal State
+  const [showSectionModal, setShowSectionModal] = useState(false);
+  const [newSection, setNewSection] = useState({
+    courseId: '',
+    sectionName: 'A',
+    semester: '',
+    capacity: 60,
+    room: '',
+    schedule: '',
+    coordinatorId: ''
+  });
+
   // FA Assignment
   const [faFilter, setFaFilter] = useState({ dept: '', unassignedOnly: false });
   const [selectedStudents, setSelectedStudents] = useState([]);
@@ -106,6 +118,20 @@ export default function AdminDashboard() {
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add course.');
+    }
+  };
+
+  const handleAddSection = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/admin/sections', newSection);
+      setMessage(`Section ${newSection.sectionName} added.`);
+      setShowSectionModal(false);
+      setNewSection({ ...newSection, sectionName: 'A', room: '', schedule: '', coordinatorId: '' });
+      fetchData(); // refresh courses
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add section.');
     }
   };
 
@@ -265,7 +291,18 @@ export default function AdminDashboard() {
                         {cg.credits} credits
                       </span>
                     </div>
-                    <span className="text-xs text-text-muted bg-white/5 px-2 py-1 rounded-md">{cg.dept}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-text-muted bg-white/5 px-2 py-1 rounded-md">{cg.dept}</span>
+                      <button 
+                        onClick={() => {
+                          setNewSection({...newSection, courseId: cg.sections[0]?.COURSE_ID || courses.find(c => c.COURSE_CODE === cg.code).COURSE_ID, semester: activeSemester});
+                          setShowSectionModal(true);
+                        }}
+                        className="btn-ghost !px-2 !py-1 text-xs"
+                      >
+                        + Add Section
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="mt-3">
@@ -502,6 +539,56 @@ export default function AdminDashboard() {
               <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
                 <button type="button" onClick={() => setShowCourseModal(false)} className="btn-ghost">Cancel</button>
                 <button type="submit" className="btn-primary">Create Course</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Section Modal */}
+      {showSectionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-text-main">Add New Section</h3>
+              <button onClick={() => setShowSectionModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            
+            <form onSubmit={handleAddSection} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Section Name</label>
+                  <input type="text" className="input-field" placeholder="e.g. A" value={newSection.sectionName} onChange={(e) => setNewSection({...newSection, sectionName: e.target.value})} required maxLength={10} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Semester</label>
+                  <input type="text" className="input-field" placeholder="e.g. ODD-2025" value={newSection.semester} onChange={(e) => setNewSection({...newSection, semester: e.target.value})} required maxLength={20} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Capacity</label>
+                  <input type="number" min="1" className="input-field" value={newSection.capacity} onChange={(e) => setNewSection({...newSection, capacity: e.target.value})} required />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Room</label>
+                  <input type="text" className="input-field" placeholder="e.g. LH-101" value={newSection.room} onChange={(e) => setNewSection({...newSection, room: e.target.value})} maxLength={30} />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Schedule</label>
+                <input type="text" className="input-field" placeholder="e.g. Mon/Wed/Fri 09:00-10:00" value={newSection.schedule} onChange={(e) => setNewSection({...newSection, schedule: e.target.value})} maxLength={100} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Section Coordinator / Faculty</label>
+                <select className="input-field appearance-none bg-surface" value={newSection.coordinatorId} onChange={(e) => setNewSection({...newSection, coordinatorId: e.target.value})}>
+                  <option value="">No coordinator currently assigned</option>
+                  {instructors.map(inst => <option key={inst.INSTRUCTOR_ID} value={inst.INSTRUCTOR_ID}>{inst.INSTRUCTOR_NAME}</option>)}
+                </select>
+              </div>
+              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+                <button type="button" onClick={() => setShowSectionModal(false)} className="btn-ghost">Cancel</button>
+                <button type="submit" className="btn-primary">Create Section</button>
               </div>
             </form>
           </div>
