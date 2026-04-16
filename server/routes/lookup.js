@@ -52,6 +52,27 @@ router.get('/departments', verifyToken, async (_req, res) => {
   }
 });
 
+// GET /api/lookup/instructors
+router.get('/instructors', verifyToken, async (_req, res) => {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const result = await conn.execute(
+      `SELECT instructor_id, first_name || ' ' || last_name AS instructor_name, dept_id 
+       FROM INSTRUCTOR 
+       ORDER BY instructor_name`,
+      [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error.' });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
 // GET /api/lookup/courses?deptId=&semester=
 // If semester is provided, only return courses that have sections in that semester
 router.get('/courses', verifyToken, async (req, res) => {
@@ -62,13 +83,13 @@ router.get('/courses', verifyToken, async (req, res) => {
     let sql, binds = {};
 
     if (semester) {
-      sql = `SELECT DISTINCT c.course_id, c.course_code, c.course_name, c.credits, c.dept_id
+      sql = `SELECT DISTINCT c.course_id, c.course_code, c.course_name, c.credits, c.dept_id, c.course_type
              FROM COURSE c
              JOIN SECTION s ON s.course_id = c.course_id AND s.semester = :semester
              WHERE 1=1`;
       binds.semester = semester;
     } else {
-      sql = `SELECT course_id, course_code, course_name, credits, dept_id FROM COURSE WHERE 1=1`;
+      sql = `SELECT course_id, course_code, course_name, credits, dept_id, course_type FROM COURSE WHERE 1=1`;
     }
 
     if (deptId) {
@@ -202,7 +223,7 @@ router.get('/student-course-details/:studentId', verifyToken, async (req, res) =
     const result = await conn.execute(
       `SELECT r.registration_id, r.section_id, r.semester, r.status, r.registered_at,
               s.section_name, s.room, s.schedule,
-              c.course_code, c.course_name, c.credits,
+              c.course_code, c.course_name, c.credits, c.course_type,
               sci.first_name || ' ' || sci.last_name AS section_coordinator,
               b.batch_id, b.batch_name,
               bci.first_name || ' ' || bci.last_name AS batch_coordinator
@@ -236,9 +257,11 @@ router.get('/student-profile/:studentId', verifyToken, async (req, res) => {
     conn = await db.getConnection();
     const result = await conn.execute(
       `SELECT s.student_id, s.first_name, s.last_name, s.email, s.enrollment_year, s.semester, s.phone,
-              d.dept_name
+              d.dept_name, s.fa_id,
+              fi.first_name || ' ' || fi.last_name AS fa_name
        FROM STUDENT s
        JOIN DEPT d ON d.dept_id = s.dept_id
+       LEFT JOIN INSTRUCTOR fi ON fi.instructor_id = s.fa_id
        WHERE s.student_id = :sid`,
       { sid: Number(studentId) },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -291,6 +314,31 @@ router.get('/active-semester', verifyToken, async (_req, res) => {
   } catch (err) {
     console.error(err);
     return res.json({ semester: 'ODD-2025' }); // fallback
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// GET /api/lookup/fa-students/:instructorId — students assigned to this FA
+router.get('/fa-students/:instructorId', verifyToken, async (req, res) => {
+  const { instructorId } = req.params;
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const result = await conn.execute(
+      `SELECT s.student_id, s.first_name, s.last_name, s.email, s.enrollment_year, s.semester,
+              d.dept_name
+       FROM STUDENT s
+       JOIN DEPT d ON d.dept_id = s.dept_id
+       WHERE s.fa_id = :iid
+       ORDER BY s.last_name, s.first_name`,
+      { iid: Number(instructorId) },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error.' });
   } finally {
     if (conn) await conn.close();
   }

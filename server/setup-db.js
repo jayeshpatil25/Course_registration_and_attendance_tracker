@@ -113,8 +113,8 @@ async function run() {
     const stuIds = [];
     for (const s of studentData) {
       stuIds.push(await ins(
-        `INSERT INTO STUDENT (first_name, last_name, email, password_hash, dept_id, enrollment_year) VALUES (:fn, :ln, :em, :pw, :d, 2025) RETURNING student_id INTO :id`,
-        { fn: s.fn, ln: s.ln, em: s.email, pw: passHash, d: s.dept }
+        `INSERT INTO STUDENT (first_name, last_name, email, password_hash, dept_id, enrollment_year, fa_id) VALUES (:fn, :ln, :em, :pw, :d, 2025, :fa) RETURNING student_id INTO :id`,
+        { fn: s.fn, ln: s.ln, em: s.email, pw: passHash, d: s.dept, fa: s.dept === csDept ? instrIds[0] : instrIds[2] }
       ));
     }
     console.log(`  ✓ Students (${stuIds.length})`);

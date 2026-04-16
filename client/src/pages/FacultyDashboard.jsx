@@ -22,6 +22,7 @@ export default function FacultyDashboard() {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [pendingDrops, setPendingDrops] = useState([]);
   const [approvalLoading, setApprovalLoading] = useState(false);
+  const [approvalActionLoading, setApprovalActionLoading] = useState(null);
 
   // Student detail modal
   const [studentDetail, setStudentDetail] = useState(null);
@@ -110,6 +111,28 @@ export default function FacultyDashboard() {
     }
   };
 
+  // ─── FA Approval Actions ──────────────────────────────
+  const handleApproveStudent = async (studentId) => {
+    setApprovalActionLoading(studentId);
+    try {
+      await api.put(`/registration/approve-student/${studentId}`);
+      fetchPending();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to approve.');
+    } finally { setApprovalActionLoading(null); }
+  };
+
+  const handleRejectStudent = async (studentId) => {
+    if (!confirm('Reject ALL pending courses for this student?')) return;
+    setApprovalActionLoading(studentId);
+    try {
+      await api.put(`/registration/reject-student/${studentId}`);
+      fetchPending();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to reject.');
+    } finally { setApprovalActionLoading(null); }
+  };
+
   const handleApprove = async (regId) => {
     try {
       await api.put(`/registration/${regId}/approve`);
@@ -173,20 +196,38 @@ export default function FacultyDashboard() {
   const absentCount = Object.values(attendanceState).filter((v) => v === 'ABSENT').length;
   const selectedSectionInfo = sections.find(s => String(s.SECTION_ID) === String(selectedSection));
 
+  // Group pending approvals by student
+  const groupedApprovals = pendingApprovals.reduce((acc, p) => {
+    const key = p.STUDENT_ID;
+    if (!acc[key]) {
+      acc[key] = {
+        studentId: p.STUDENT_ID,
+        firstName: p.FIRST_NAME,
+        lastName: p.LAST_NAME,
+        email: p.EMAIL,
+        courses: [],
+      };
+    }
+    acc[key].courses.push(p);
+    return acc;
+  }, {});
+
+  const totalPendingStudents = Object.keys(groupedApprovals).length;
+
   return (
     <div className="min-h-screen bg-surface">
       <Navbar />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-6 animate-fade-in-up">
           <h2 className="text-2xl font-bold text-text-main">Faculty Dashboard 🎓</h2>
-          <p className="mt-1 text-text-muted">Manage attendance and approve course registrations.</p>
+          <p className="mt-1 text-text-muted">Manage attendance and approve student registrations as Batch Coordinator.</p>
         </div>
 
         {/* Tabs */}
         <div className="mb-6 flex gap-2">
           {[
             { key: 'attendance', label: '📝 Mark Attendance' },
-            { key: 'approvals', label: `✅ Approvals ${(pendingApprovals.length + pendingDrops.length) > 0 ? `(${pendingApprovals.length + pendingDrops.length})` : ''}` },
+            { key: 'approvals', label: `✅ Batch Coordinator Approvals ${(totalPendingStudents + pendingDrops.length) > 0 ? `(${totalPendingStudents + pendingDrops.length})` : ''}` },
           ].map((t) => (
             <button
               key={t.key}
@@ -288,60 +329,129 @@ export default function FacultyDashboard() {
           </>
         )}
 
-        {/* ── Approvals Tab ──────────────────────────────── */}
+        {/* ── Approvals Tab (Batch Coordinator Workflow) ─────────────────── */}
         {tab === 'approvals' && (
           <div className="animate-fade-in-up">
+            {/* Info Banner */}
+            <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-text-muted">
+              <p className="font-semibold text-primary-light mb-1">👨‍🏫 Batch Coordinator — Registration Approval</p>
+              <p className="text-xs">Review and approve/reject course registrations for your assigned students. You can approve all courses at once or review individually.</p>
+            </div>
+
             {approvalLoading ? (
               <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton h-16 rounded-xl" />)}</div>
-            ) : pendingApprovals.length === 0 && pendingDrops.length === 0 ? (
+            ) : totalPendingStudents === 0 && pendingDrops.length === 0 ? (
               <div className="glass-card text-center text-text-muted">
                 No pending requests. All registrations and drops have been reviewed. ✅
               </div>
             ) : (
               <div className="space-y-6">
-                {pendingApprovals.length > 0 && (
+                {/* Registration Requests — Grouped by Student */}
+                {totalPendingStudents > 0 && (
                   <div>
-                    <h3 className="mb-3 text-lg font-bold text-text-main">Registration Requests ({pendingApprovals.length})</h3>
-                    <div className="space-y-2">
-                      {pendingApprovals.map((p, i) => (
-                        <div key={p.REGISTRATION_ID} className="glass-card !p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-light">
-                                {p.FIRST_NAME?.[0]}{p.LAST_NAME?.[0]}
+                    <h3 className="mb-3 text-lg font-bold text-text-main">
+                      Registration Requests — {totalPendingStudents} Student(s)
+                    </h3>
+                    <div className="space-y-4">
+                      {Object.values(groupedApprovals).map((group) => {
+                        const theoryCount = group.courses.filter(c => c.COURSE_TYPE === 'THEORY').length;
+                        const practicalCount = group.courses.filter(c => c.COURSE_TYPE === 'PRACTICAL').length;
+                        const totalCredits = group.courses.reduce((a, c) => a + (c.CREDITS || 0), 0);
+                        const isActionLoading = approvalActionLoading === group.studentId;
+
+                        return (
+                          <div key={group.studentId} className="glass-card !p-4">
+                            {/* Student Header */}
+                            <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/10">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-sm font-bold text-white">
+                                  {group.firstName?.[0]}{group.lastName?.[0]}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-text-main">{group.firstName} {group.lastName}</p>
+                                  <p className="text-xs text-text-muted">{group.email}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-medium text-text-main">{p.FIRST_NAME} {p.LAST_NAME}</p>
-                                <p className="text-xs text-text-muted">{p.EMAIL}</p>
-                                <p className="mt-0.5 text-xs">
-                                  <span className="text-accent">{p.COURSE_CODE}</span>
-                                  <span className="text-text-muted"> — Sec {p.SECTION_NAME} • Registration Request</span>
-                                </p>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => openStudentDetail(group.studentId)}
+                                  className="rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-text-muted hover:bg-white/15 transition-all">
+                                  👁 Profile
+                                </button>
+                                <button onClick={() => handleApproveStudent(group.studentId)}
+                                  disabled={isActionLoading}
+                                  className="rounded-lg bg-success/20 px-4 py-2 text-xs font-semibold text-success hover:bg-success/30 transition-all disabled:opacity-50">
+                                  {isActionLoading ? '...' : '✓ Approve All'}
+                                </button>
+                                <button onClick={() => handleRejectStudent(group.studentId)}
+                                  disabled={isActionLoading}
+                                  className="rounded-lg bg-danger/20 px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/30 transition-all disabled:opacity-50">
+                                  ✕ Reject All
+                                </button>
                               </div>
                             </div>
-                            <div className="flex gap-2">
-                              <button onClick={() => openStudentDetail(p.STUDENT_ID)} className="rounded-lg bg-primary/20 px-3 py-2 text-xs font-semibold text-primary-light hover:bg-primary/30 transition-all">
-                                👁 View Profile
-                              </button>
-                              <button onClick={() => handleApprove(p.REGISTRATION_ID)} className="rounded-lg bg-success/20 px-4 py-2 text-xs font-semibold text-success hover:bg-success/30 transition-all">
-                                ✓ Approve
-                              </button>
-                              <button onClick={() => handleReject(p.REGISTRATION_ID)} className="rounded-lg bg-danger/20 px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/30 transition-all">
-                                ✕ Reject
-                              </button>
+
+                            {/* Summary */}
+                            <div className="mb-3 flex gap-3 text-xs">
+                              <span className="rounded-md bg-primary/15 px-2 py-1 text-primary-light font-semibold">
+                                📖 Theory: {theoryCount}
+                              </span>
+                              <span className="rounded-md bg-accent/15 px-2 py-1 text-accent font-semibold">
+                                🔬 Practical: {practicalCount}
+                              </span>
+                              <span className="rounded-md bg-white/10 px-2 py-1 text-text-muted font-semibold">
+                                🎓 {totalCredits} Credits
+                              </span>
+                              {theoryCount > 6 && (
+                                <span className="rounded-md bg-danger/15 px-2 py-1 text-danger font-semibold">
+                                  ⚠ Exceeds 6 Theory limit!
+                                </span>
+                              )}
+                              {practicalCount > 4 && (
+                                <span className="rounded-md bg-danger/15 px-2 py-1 text-danger font-semibold">
+                                  ⚠ Exceeds 4 Practical limit!
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Course List */}
+                            <div className="space-y-1">
+                              {group.courses.map((c) => (
+                                <div key={c.REGISTRATION_ID} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-block w-2 h-2 rounded-full ${c.COURSE_TYPE === 'PRACTICAL' ? 'bg-accent' : 'bg-primary'}`}></span>
+                                    <span className="font-bold text-text-main">{c.COURSE_CODE}</span>
+                                    <span className="text-text-muted">{c.COURSE_NAME}</span>
+                                    <span className="text-text-muted">• Sec {c.SECTION_NAME}</span>
+                                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                                      c.COURSE_TYPE === 'PRACTICAL' ? 'bg-accent/20 text-accent' : 'bg-primary/20 text-primary-light'
+                                    }`}>{c.COURSE_TYPE}</span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => handleApprove(c.REGISTRATION_ID)}
+                                      className="rounded bg-success/20 px-2 py-1 text-[10px] font-semibold text-success hover:bg-success/30">
+                                      ✓
+                                    </button>
+                                    <button onClick={() => handleReject(c.REGISTRATION_ID)}
+                                      className="rounded bg-danger/20 px-2 py-1 text-[10px] font-semibold text-danger hover:bg-danger/30">
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 
+                {/* Drop Requests */}
                 {pendingDrops.length > 0 && (
                   <div>
                     <h3 className="mb-3 text-lg font-bold text-text-main">Drop Course Requests ({pendingDrops.length})</h3>
                     <div className="space-y-2">
-                      {pendingDrops.map((p, i) => (
+                      {pendingDrops.map((p) => (
                         <div key={p.REGISTRATION_ID} className="glass-card !p-4 border border-danger/30">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -355,6 +465,9 @@ export default function FacultyDashboard() {
                                   <span className="text-danger font-semibold">Drop Request: </span>
                                   <span className="text-accent">{p.COURSE_CODE}</span>
                                   <span className="text-text-muted"> — Sec {p.SECTION_NAME}</span>
+                                  <span className={`ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                                    p.COURSE_TYPE === 'PRACTICAL' ? 'bg-accent/20 text-accent' : 'bg-primary/20 text-primary-light'
+                                  }`}>{p.COURSE_TYPE}</span>
                                 </p>
                               </div>
                             </div>
@@ -411,7 +524,7 @@ export default function FacultyDashboard() {
                     { label: 'Department', value: studentDetail.profile.DEPT_NAME },
                     { label: 'Enrollment Year', value: studentDetail.profile.ENROLLMENT_YEAR },
                     { label: 'Current Semester', value: studentDetail.profile.SEMESTER },
-                    { label: 'College', value: 'VNIT Nagpur' },
+                    { label: 'Batch Coordinator', value: studentDetail.profile.FA_NAME || '—' },
                     { label: 'Phone', value: studentDetail.profile.PHONE || '—' },
                   ].map((item, i) => (
                     <div key={i} className="rounded-xl bg-white/5 p-3">
@@ -426,7 +539,10 @@ export default function FacultyDashboard() {
                 <div className="mb-4 space-y-1">
                   {studentDetail.registrations.map((r, i) => (
                     <div key={i} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-xs">
-                      <span className="text-text-main">{r.COURSE_CODE} — {r.COURSE_NAME} (Sec {r.SECTION_NAME})</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-block w-2 h-2 rounded-full ${r.COURSE_TYPE === 'PRACTICAL' ? 'bg-accent' : 'bg-primary'}`}></span>
+                        <span className="text-text-main">{r.COURSE_CODE} — {r.COURSE_NAME} (Sec {r.SECTION_NAME})</span>
+                      </div>
                       <span className={`badge ${r.STATUS === 'ACTIVE' ? 'badge-present' : r.STATUS === 'PENDING' ? 'badge-pending' : 'badge-absent'}`}>
                         {r.STATUS}
                       </span>
