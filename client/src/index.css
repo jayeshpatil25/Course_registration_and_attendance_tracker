@@ -3,16 +3,16 @@
 
 /* ── VNIT-Inspired Light Theme Design Tokens ─────────── */
 @theme {
-  --color-primary: #7B1113;
-  --color-primary-light: #9B2335;
-  --color-primary-dark: #5A0C0E;
-  --color-accent: #C8963E;
-  --color-surface: #F8F6F3;
+  --color-primary: #002147;
+  --color-primary-light: #003875;
+  --color-primary-dark: #001229;
+  --color-accent: #DAA520;
+  --color-surface: #F4F6F9;
   --color-surface-light: #FFFFFF;
   --color-surface-card: #FFFFFF;
-  --color-text-main: #1E1E2D;
+  --color-text-main: #111827;
   --color-text-muted: #6B7280;
-  --color-success: #16A34A;
+  --color-success: #059669;
   --color-danger: #DC2626;
   --color-warning: #D97706;
 }
