@@ -23,8 +23,8 @@ async function run() {
     console.log('🗑  Dropping existing tables ...');
     const dropOrder = [
       'ATTENDANCE', 'REGISTRATION', 'BATCH_COORDINATOR', 'SECTION_COORDINATOR',
-      'BATCH', 'SECTION', 'COURSE', 'STUDENT', 'INSTRUCTOR', 'DEPT', 'COLLEGE',
-      'ADMIN', 'ACTIVE_SEMESTER'
+      'BATCH', 'SECTION', 'COURSE_OFFERED_SEMESTER', 'COURSE', 'STUDENT', 'INSTRUCTOR', 'DEPT', 'COLLEGE',
+      'ADMIN', 'ACTIVE_SEMESTER', 'ACADEMIC_SESSION'
     ];
     for (const tbl of dropOrder) {
       try { await conn.execute(`DROP TABLE ${tbl} CASCADE CONSTRAINTS PURGE`); console.log(`  ✓ Dropped ${tbl}`); }
@@ -62,11 +62,12 @@ async function run() {
       return r.outBinds.id[0];
     };
 
-    // Active Semester
-    await conn.execute(
-      `INSERT INTO ACTIVE_SEMESTER (id, semester) VALUES (1, 'ODD-2025')`
-    );
-    console.log('  ✓ Active semester: ODD-2025');
+    // Sessions + Active Session
+    await conn.execute(`INSERT INTO ACADEMIC_SESSION (session_code, term, session_year) VALUES ('ODD-2025', 'ODD', 2025)`);
+    await conn.execute(`INSERT INTO ACADEMIC_SESSION (session_code, term, session_year) VALUES ('EVEN-2026', 'EVEN', 2026)`);
+    await conn.execute(`INSERT INTO ACTIVE_SEMESTER (id, session_code) VALUES (1, 'ODD-2025')`);
+    console.log('  ✓ Sessions: ODD-2025, EVEN-2026');
+    console.log('  ✓ Active session (session_code): ODD-2025');
 
     // Admin
     await conn.execute(
@@ -86,134 +87,240 @@ async function run() {
     const ecDept = await ins(`INSERT INTO DEPT (dept_name, college_id) VALUES (:n, :c) RETURNING dept_id INTO :id`, { n: 'Electronics & Communication Engineering', c: collegeId });
     console.log(`  ✓ Departments`);
 
-    // Instructors (4 total)
-    const faculty = [
-      { fn: 'Rajesh', ln: 'Kumar', email: 'rajesh@unitrack.edu', dept: csDept },
-      { fn: 'Priya', ln: 'Sharma', email: 'priya@unitrack.edu', dept: csDept },
-      { fn: 'Arjun', ln: 'Mehta', email: 'arjun@unitrack.edu', dept: ecDept },
-      { fn: 'Kavita', ln: 'Desai', email: 'kavita@unitrack.edu', dept: ecDept },
+    // Instructors
+    const facultyNames = [
+      'PS Deshpande',
+      'OG Kakde',
+      'Praveen Kumar',
+      'Kumari Nidhi Lal',
+      'Anshul Agrawal',
+      'Ravindra Keskar',
+      'UA Deshpande',
+      'Meera Dhabu',
+      'PVN Prashant',
+      'Gaurav Mishra',
+      'Swati Jaiswal',
+      'Manish Kurhekar',
+      'Shital Raut',
+      'Poonam Sharma',
+      'Neha Sharma',
+      'D Hem kumar',
+      'Mansi Radke',
     ];
-    const instrIds = [];
-    for (const f of faculty) {
-      instrIds.push(await ins(
-        `INSERT INTO INSTRUCTOR (first_name, last_name, email, password_hash, dept_id, designation) VALUES (:fn, :ln, :em, :pw, :d, 'Professor') RETURNING instructor_id INTO :id`,
-        { fn: f.fn, ln: f.ln, em: f.email, pw: passHash, d: f.dept }
-      ));
-    }
-    console.log(`  ✓ Instructors (${instrIds.length})`);
 
-    // Students (5)
-    const studentData = [
-      { fn: 'Amit', ln: 'Patel', email: 'amit@unitrack.edu', dept: csDept },
-      { fn: 'Sneha', ln: 'Reddy', email: 'sneha@unitrack.edu', dept: csDept },
-      { fn: 'Vikram', ln: 'Singh', email: 'vikram@unitrack.edu', dept: ecDept },
-      { fn: 'Neha', ln: 'Gupta', email: 'neha@unitrack.edu', dept: csDept },
-      { fn: 'Rohit', ln: 'Joshi', email: 'rohit@unitrack.edu', dept: ecDept },
-    ];
-    const stuIds = [];
-    for (const s of studentData) {
-      stuIds.push(await ins(
-        `INSERT INTO STUDENT (first_name, last_name, email, password_hash, dept_id, enrollment_year, fa_id) VALUES (:fn, :ln, :em, :pw, :d, 2025, :fa) RETURNING student_id INTO :id`,
-        { fn: s.fn, ln: s.ln, em: s.email, pw: passHash, d: s.dept, fa: s.dept === csDept ? instrIds[0] : instrIds[2] }
-      ));
-    }
-    console.log(`  ✓ Students (${stuIds.length})`);
-
-    // Courses (5)
-    const courseData = [
-      { code: 'CS101', name: 'Data Structures', dept: csDept, cr: 4 },
-      { code: 'CS201', name: 'Database Systems', dept: csDept, cr: 4 },
-      { code: 'CS301', name: 'Operating Systems', dept: csDept, cr: 3 },
-      { code: 'EC101', name: 'Digital Electronics', dept: ecDept, cr: 3 },
-      { code: 'EC201', name: 'Signal Processing', dept: ecDept, cr: 4 },
-    ];
-    const courseIds = [];
-    for (const c of courseData) {
-      courseIds.push(await ins(
-        `INSERT INTO COURSE (course_code, course_name, dept_id, credits) VALUES (:co, :cn, :d, :cr) RETURNING course_id INTO :id`,
-        { co: c.code, cn: c.name, d: c.dept, cr: c.cr }
-      ));
-    }
-    console.log(`  ✓ Courses (${courseIds.length})`);
-
-    // Sections — ODD-2025, with MWF schedules (3 classes/week)
-    const secData = [
-      { name: 'A', courseIdx: 0, sem: 'ODD-2025', room: 'LH-101', sched: 'Mon/Wed/Fri 09:00-10:00', faculty: instrIds[0] },
-      { name: 'B', courseIdx: 0, sem: 'ODD-2025', room: 'LH-102', sched: 'Mon/Wed/Fri 10:00-11:00', faculty: instrIds[1] },
-      { name: 'A', courseIdx: 1, sem: 'ODD-2025', room: 'LH-201', sched: 'Tue/Thu/Sat 11:00-12:00', faculty: instrIds[0] },
-      { name: 'A', courseIdx: 2, sem: 'ODD-2025', room: 'LH-301', sched: 'Mon/Wed/Fri 14:00-15:00', faculty: instrIds[1] },
-      { name: 'A', courseIdx: 3, sem: 'ODD-2025', room: 'LH-401', sched: 'Tue/Thu/Sat 14:00-15:00', faculty: instrIds[2] },
-      { name: 'A', courseIdx: 4, sem: 'ODD-2025', room: 'LH-402', sched: 'Mon/Wed/Fri 11:00-12:00', faculty: instrIds[3] },
-      // EVEN semester
-      { name: 'A', courseIdx: 0, sem: 'EVEN-2025', room: 'LH-101', sched: 'Tue/Thu/Sat 09:00-10:00', faculty: instrIds[1] },
-      { name: 'A', courseIdx: 3, sem: 'EVEN-2025', room: 'LH-401', sched: 'Mon/Wed/Fri 11:00-12:00', faculty: instrIds[2] },
-    ];
-    const secIds = [];
-    for (const s of secData) {
-      const sid = await ins(
-        `INSERT INTO SECTION (section_name, course_id, semester, capacity, room, schedule) VALUES (:sn, :cid, :sem, 60, :rm, :sc) RETURNING section_id INTO :id`,
-        { sn: s.name, cid: courseIds[s.courseIdx], sem: s.sem, rm: s.room, sc: s.sched }
+    const faculty = [];
+    for (const fullName of facultyNames) {
+      const parts = fullName.trim().split(/\s+/);
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(' ') || '-';
+      const email = `${firstName.toLowerCase()}@unitrack.edu`;
+      const instructorId = await ins(
+        `INSERT INTO INSTRUCTOR (first_name, last_name, email, password_hash, dept_id)
+         VALUES (:f, :l, :e, :p, :d)
+         RETURNING instructor_id INTO :id`,
+        { f: firstName, l: lastName, e: email, p: passHash, d: csDept }
       );
-      secIds.push(sid);
-      await conn.execute(`INSERT INTO SECTION_COORDINATOR (section_id, instructor_id) VALUES (:s, :i)`, { s: sid, i: s.faculty });
+      faculty.push({ instructorId, fullName, email });
     }
-    console.log(`  ✓ Sections (${secIds.length})`);
+    console.log(`  ✓ Instructors (${faculty.length})`);
 
-    // Batches (B1, B2, LAB per ODD section)
-    for (let i = 0; i < 6; i++) {
-      const secId = secIds[i];
-      const secFac = secData[i].faculty;
-      for (const bn of ['B1', 'B2']) {
-        const bid = await ins(`INSERT INTO BATCH (batch_name, section_id, capacity) VALUES (:bn, :sid, 30) RETURNING batch_id INTO :id`, { bn, sid: secId });
-        await conn.execute(`INSERT INTO BATCH_COORDINATOR (batch_id, instructor_id) VALUES (:b, :i)`, { b: bid, i: secFac });
-      }
-      // LAB batch with different coordinator
-      const labFac = i < 3 ? instrIds[1] : instrIds[3];
-      const labId = await ins(`INSERT INTO BATCH (batch_name, section_id, capacity) VALUES (:bn, :sid, 20) RETURNING batch_id INTO :id`, { bn: 'LAB', sid: secId });
-      await conn.execute(`INSERT INTO BATCH_COORDINATOR (batch_id, instructor_id) VALUES (:b, :i)`, { b: labId, i: labFac });
-    }
-    console.log(`  ✓ Batches`);
-
-    // Registrations — mix of ACTIVE (approved) and PENDING
-    const regData = [
-      // Approved registrations
-      { stu: stuIds[0], sec: secIds[0], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[0] },
-      { stu: stuIds[0], sec: secIds[2], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[0] },
-      { stu: stuIds[1], sec: secIds[0], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[0] },
-      { stu: stuIds[1], sec: secIds[3], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[1] },
-      { stu: stuIds[2], sec: secIds[4], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[2] },
-      { stu: stuIds[2], sec: secIds[5], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[3] },
-      { stu: stuIds[3], sec: secIds[1], status: 'ACTIVE', approval: 'APPROVED', by: instrIds[1] },
-      // Pending registrations (for faculty to approve)
-      { stu: stuIds[3], sec: secIds[2], status: 'PENDING', approval: 'PENDING', by: null },
-      { stu: stuIds[4], sec: secIds[4], status: 'PENDING', approval: 'PENDING', by: null },
-      { stu: stuIds[4], sec: secIds[0], status: 'PENDING', approval: 'PENDING', by: null },
+    // Students
+    const studentsToSeed = [
+      { fullName: 'Salil Phanse', admissionYear: 2023 },
+      { fullName: 'Jayesh Patil', admissionYear: 2023 },
+      { fullName: 'Himanshu Kumar', admissionYear: 2024 },
+      { fullName: 'Dhanvanshi Hanchate', admissionYear: 2025 },
+      { fullName: 'Vedant Singh', admissionYear: 2025 },
+      { fullName: 'Pushpal Mahajan', admissionYear: 2023 },
+      { fullName: 'Anand Kale', admissionYear: 2024 },
+      { fullName: 'Medhansh Panchal', admissionYear: 2025 },
+      { fullName: 'Arjun Gaikwad', admissionYear: 2023 },
+      { fullName: 'Madhav Chandak', admissionYear: 2024 },
+      { fullName: 'Shravani Sawai', admissionYear: 2023 },
+      { fullName: 'Anagha Choudhary', admissionYear: 2024 },
+      { fullName: 'Ankita Bagal', admissionYear: 2025 },
+      { fullName: 'Prasanna Adnaik', admissionYear: 2023 },
+      { fullName: 'Tanushree', admissionYear: 2024 },
     ];
-    for (const r of regData) {
-      await conn.execute(
-        `INSERT INTO REGISTRATION (student_id, section_id, semester, status, approval_status, approved_by) VALUES (:s, :sec, 'ODD-2025', :st, :ap, :approver)`,
-        { s: r.stu, sec: r.sec, st: r.status, ap: r.approval, approver: r.by }
-      );
-    }
-    console.log(`  ✓ Registrations (${regData.length} — ${regData.filter(r=>r.status==='PENDING').length} pending)`);
 
-    // Sample attendance (5 days for CS101 Sec A)
-    const today = new Date();
-    for (let dayOffset = 1; dayOffset <= 5; dayOffset++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - dayOffset);
-      const dateStr = d.toISOString().slice(0, 10);
-      for (const stuId of [stuIds[0], stuIds[1]]) {
-        const status = Math.random() > 0.2 ? 'PRESENT' : 'ABSENT';
-        try {
-          await conn.execute(
-            `INSERT INTO ATTENDANCE (student_id, section_id, attendance_date, status, marked_by) VALUES (:s, :sec, TO_DATE(:d, 'YYYY-MM-DD'), :st, :mb)`,
-            { s: stuId, sec: secIds[0], d: dateStr, st: status, mb: instrIds[0] }
+    let studentCount = 0;
+    for (const s of studentsToSeed) {
+      const parts = s.fullName.trim().split(/\s+/);
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(' ') || '-';
+      const email = `${firstName.toLowerCase()}@unitrack.edu`;
+
+      await ins(
+        `INSERT INTO STUDENT (first_name, last_name, email, password_hash, dept_id, enrollment_year, admission_year, phone, dob, fa_id)
+         VALUES (:f, :l, :e, :p, :d, :ey, :ay, NULL, NULL, NULL)
+         RETURNING student_id INTO :id`,
+        {
+          f: firstName,
+          l: lastName,
+          e: email,
+          p: passHash,
+          d: csDept,
+          ey: s.admissionYear,
+          ay: s.admissionYear,
+        }
+      );
+      studentCount++;
+    }
+    console.log(`  ✓ Students (${studentCount})`);
+
+    // Courses
+    const coursesBySemester = [
+      {
+        semester: 1,
+        term: 'ODD',
+        courses: [
+          { code: 'MA101', name: 'Maths 1', credits: 4 },
+          { code: 'CS101', name: 'Computer Programming', credits: 4 },
+          { code: 'CH101', name: 'Chemistry', credits: 4 },
+          { code: 'EE101', name: 'Electrical Engineering', credits: 4 },
+          { code: 'HS101', name: 'Social Science', credits: 3 },
+        ],
+      },
+      {
+        semester: 2,
+        term: 'EVEN',
+        courses: [
+          { code: 'PH102', name: 'Physics', credits: 4 },
+          { code: 'ME102', name: 'Engineering Drawing', credits: 4 },
+          { code: 'HS102', name: 'Communication Skills', credits: 3 },
+          { code: 'ME103', name: 'Engineering Mechanics', credits: 4 },
+          { code: 'MA102', name: 'Maths 2', credits: 4 },
+        ],
+      },
+      {
+        semester: 3,
+        term: 'ODD',
+        courses: [
+          { code: 'EC201', name: 'Digital Circuits and Microprocessors', credits: 5 },
+          { code: 'MA201', name: 'Discrete Maths and graph theory', credits: 4 },
+          { code: 'CS201', name: 'Data structures and program design 1', credits: 5 },
+          { code: 'MA202', name: 'Probability Theory', credits: 4 },
+          { code: 'HS201', name: 'Technical Communication', credits: 3 },
+        ],
+      },
+      {
+        semester: 4,
+        term: 'EVEN',
+        courses: [
+          { code: 'MA203', name: 'Linear Algebra', credits: 4 },
+          { code: 'CS202', name: 'Data Strucutres and Program Design 2', credits: 5 },
+          { code: 'CS203', name: 'Concepts of Programming Languages', credits: 4 },
+          { code: 'CS204', name: 'Object Oriented Programming', credits: 4 },
+          { code: 'CS205', name: 'Computer Organisation', credits: 4 },
+        ],
+      },
+      {
+        semester: 5,
+        term: 'ODD',
+        courses: [
+          { code: 'CS301', name: 'Theory of Computation', credits: 4 },
+          { code: 'CS302', name: 'Computer Networks', credits: 4 },
+          { code: 'CS303', name: 'Operating Systems', credits: 4 },
+          { code: 'CS304', name: 'Neuro and Fuzzy Techniques', credits: 4 },
+          { code: 'CS305', name: 'Design and Analysis of Algorithms', credits: 4 },
+        ],
+      },
+      {
+        semester: 6,
+        term: 'EVEN',
+        courses: [
+          { code: 'CS306', name: 'Language Processors', credits: 4 },
+          { code: 'CS307', name: 'Database and Management systems', credits: 4 },
+          { code: 'CS308', name: 'System and Network security', credits: 4 },
+          { code: 'MA301', name: 'Game Theory', credits: 4 },
+          { code: 'CS309', name: 'Image Processing and Understanding', credits: 4 },
+          { code: 'CS310', name: 'Machine Learning', credits: 4 },
+        ],
+      },
+    ];
+
+    const courseIdByCode = new Map();
+    for (const sem of coursesBySemester) {
+      for (const c of sem.courses) {
+        if (!courseIdByCode.has(c.code)) {
+          const courseId = await ins(
+            `INSERT INTO COURSE (course_code, course_name, dept_id, credits, course_type, description)
+             VALUES (:cc, :cn, :d, :cr, 'THEORY', NULL)
+             RETURNING course_id INTO :id`,
+            { cc: c.code, cn: c.name, d: csDept, cr: c.credits }
           );
-        } catch (err) { /* skip duplicates */ }
+          courseIdByCode.set(c.code, courseId);
+        }
+
+        await conn.execute(
+          `INSERT INTO COURSE_OFFERED_SEMESTER (course_id, semester_number)
+           VALUES (:cid, :sem)`,
+          { cid: courseIdByCode.get(c.code), sem: sem.semester }
+        );
       }
     }
-    console.log('  ✓ Sample attendance');
+    console.log(`  ✓ Courses (${courseIdByCode.size}) + offered semesters mapped`);
+
+    // Sections
+    const sectionLetters = ['A', 'B'];
+    let facultyIdx = 0;
+    let sectionCount = 0;
+
+    const sessionCodeForSemester = (semNum) => (semNum % 2 === 1 ? 'ODD-2025' : 'EVEN-2026');
+
+    for (const sem of coursesBySemester) {
+      const sessionCode = sessionCodeForSemester(sem.semester);
+      for (const c of sem.courses) {
+        const courseId = courseIdByCode.get(c.code);
+        if (!courseId) continue;
+
+        // pick two different instructors for A and B
+        const instructorA = faculty[facultyIdx % faculty.length].instructorId;
+        const instructorB = faculty[(facultyIdx + 1) % faculty.length].instructorId;
+        facultyIdx += 2;
+
+        for (const [i, letter] of sectionLetters.entries()) {
+          const instructorId = i === 0 ? instructorA : instructorB;
+
+          const secResult = await conn.execute(
+            `INSERT INTO SECTION (section_name, course_id, session_code, target_semester, instructor_id, capacity, room, schedule)
+             VALUES (:sname, :cid, :scode, :tsem, :iid, 60, NULL, NULL)
+             RETURNING section_id INTO :id`,
+            {
+              sname: letter,
+              cid: courseId,
+              scode: sessionCode,
+              tsem: sem.semester,
+              iid: instructorId,
+              id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+            },
+            { autoCommit: false }
+          );
+
+          const newSectionId = secResult.outBinds.id[0];
+          sectionCount++;
+
+          // Keep existing UI happy: also mark the same instructor as coordinator
+          await conn.execute(
+            `INSERT INTO SECTION_COORDINATOR (section_id, instructor_id)
+             VALUES (:sid, :iid)`,
+            { sid: newSectionId, iid: instructorId },
+            { autoCommit: false }
+          );
+        }
+      }
+    }
+
+    console.log(`  ✓ Sections (${sectionCount}) — 2 per course offering with assigned instructors`);
+
+    // Batches
+    console.log(`  ✓ Batches (Skipped for custom reload)`);
+
+    // Registrations
+    console.log(`  ✓ Registrations (Skipped for custom reload)`);
+
+    // Sample attendance
+    console.log('  ✓ Sample attendance (Skipped for custom reload)');
 
     await conn.commit();
 
@@ -225,13 +332,7 @@ async function run() {
     console.log('');
     console.log('  Logins (password: password123):');
     console.log('    Admin:   admin@unitrack.edu');
-    console.log('    Student: amit@unitrack.edu');
-    console.log('    Student: sneha@unitrack.edu');
-    console.log('    Student: neha@unitrack.edu');
-    console.log('    Faculty: rajesh@unitrack.edu (CS101-A, CS201-A)');
-    console.log('    Faculty: priya@unitrack.edu  (CS101-B, CS301-A)');
-    console.log('    Faculty: arjun@unitrack.edu  (EC101-A)');
-    console.log('    Faculty: kavita@unitrack.edu (EC201-A)');
+    console.log('    (Other accounts cleared as per request)');
     console.log('══════════════════════════════════════════════\n');
 
   } catch (err) {

@@ -25,7 +25,7 @@ router.post('/', verifyToken, authorize('student'), async (req, res) => {
 
     // Fetch the admin-set active semester — this is the ONLY semester students can register in
     const semResult = await conn.execute(
-      `SELECT semester FROM ACTIVE_SEMESTER WHERE id = 1`,
+      `SELECT session_code AS semester FROM ACTIVE_SEMESTER WHERE id = 1`,
       [],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
@@ -42,7 +42,7 @@ router.post('/', verifyToken, authorize('student'), async (req, res) => {
 
     // Verify the section actually belongs to the active semester
     const secCheck = await conn.execute(
-      `SELECT semester FROM SECTION WHERE section_id = :sid`,
+      `SELECT session_code AS semester FROM SECTION WHERE section_id = :sid`,
       { sid: sectionId },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
@@ -55,7 +55,7 @@ router.post('/', verifyToken, authorize('student'), async (req, res) => {
 
     // Check if already registered
     const check = await conn.execute(
-      `SELECT COUNT(*) AS cnt FROM REGISTRATION WHERE student_id = :s AND section_id = :sec AND semester = :sem`,
+      `SELECT COUNT(*) AS cnt FROM REGISTRATION WHERE student_id = :s AND section_id = :sec AND session_code = :sem`,
       { s: studentId, sec: sectionId, sem: semester }
     );
     if (check.rows[0][0] > 0) {
@@ -75,7 +75,7 @@ router.post('/', verifyToken, authorize('student'), async (req, res) => {
     }
 
     const result = await conn.execute(
-      `INSERT INTO REGISTRATION (student_id, section_id, semester, status, approval_status)
+      `INSERT INTO REGISTRATION (student_id, section_id, session_code, status, approval_status)
        VALUES (:s, :sec, :sem, 'PENDING', 'PENDING')
        RETURNING registration_id INTO :id`,
       {
@@ -121,7 +121,7 @@ router.post('/bulk', verifyToken, authorize('student'), async (req, res) => {
 
     // Get active semester
     const semResult = await conn.execute(
-      `SELECT semester FROM ACTIVE_SEMESTER WHERE id = 1`,
+      `SELECT session_code AS semester FROM ACTIVE_SEMESTER WHERE id = 1`,
       [], { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     const activeSemester = semResult.rows.length > 0 ? semResult.rows[0].SEMESTER : null;
@@ -135,7 +135,7 @@ router.post('/bulk', verifyToken, authorize('student'), async (req, res) => {
        FROM REGISTRATION r
        JOIN SECTION s ON s.section_id = r.section_id
        JOIN COURSE c ON c.course_id = s.course_id
-       WHERE r.student_id = :sid AND r.semester = :sem AND r.status IN ('ACTIVE', 'PENDING')
+       WHERE r.student_id = :sid AND r.session_code = :sem AND r.status IN ('ACTIVE', 'PENDING')
        GROUP BY c.course_type`,
       { sid: studentId, sem: activeSemester },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -153,7 +153,7 @@ router.post('/bulk', verifyToken, authorize('student'), async (req, res) => {
     for (const secId of sectionIds) {
       // Verify section exists and belongs to active semester, fetch course type
       const secCheck = await conn.execute(
-        `SELECT s.section_id, s.semester, s.capacity, c.course_type, c.course_code,
+        `SELECT s.section_id, s.session_code AS semester, s.capacity, c.course_type, c.course_code,
                 (SELECT COUNT(*) FROM REGISTRATION r WHERE r.section_id = s.section_id AND r.status IN ('ACTIVE','PENDING')) AS enrolled
          FROM SECTION s
          JOIN COURSE c ON c.course_id = s.course_id
@@ -177,7 +177,7 @@ router.post('/bulk', verifyToken, authorize('student'), async (req, res) => {
 
       // Check for any existing registration for this section and semester
       const dupCheck = await conn.execute(
-        `SELECT registration_id, status FROM REGISTRATION WHERE student_id = :s AND section_id = :sec AND semester = :sem`,
+        `SELECT registration_id, status FROM REGISTRATION WHERE student_id = :s AND section_id = :sec AND session_code = :sem`,
         { s: studentId, sec: Number(secId), sem: activeSemester },
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
@@ -227,7 +227,7 @@ router.post('/bulk', verifyToken, authorize('student'), async (req, res) => {
         registrationIds.push(sec.existingRegId);
       } else {
         const result = await conn.execute(
-          `INSERT INTO REGISTRATION (student_id, section_id, semester, status, approval_status)
+          `INSERT INTO REGISTRATION (student_id, section_id, session_code, status, approval_status)
            VALUES (:s, :sec, :sem, 'PENDING', 'PENDING')
            RETURNING registration_id INTO :id`,
           {
@@ -271,7 +271,7 @@ router.get('/:studentId', verifyToken, async (req, res) => {
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT r.registration_id, r.section_id, r.semester, r.status, r.approval_status, r.registered_at,
+      `SELECT r.registration_id, r.section_id, r.session_code AS semester, r.status, r.approval_status, r.registered_at,
               s.section_name, c.course_code, c.course_name, c.credits, c.course_type
        FROM REGISTRATION r
        JOIN SECTION s ON s.section_id = r.section_id
@@ -326,7 +326,7 @@ router.get('/pending-approvals/:instructorId', verifyToken, authorize('instructo
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT r.registration_id, r.student_id, r.section_id, r.semester, r.registered_at,
+      `SELECT r.registration_id, r.student_id, r.section_id, r.session_code AS semester, r.registered_at,
               st.first_name, st.last_name, st.email,
               s.section_name, c.course_code, c.course_name, c.course_type, c.credits
        FROM REGISTRATION r
@@ -477,7 +477,7 @@ router.get('/pending-drops/:instructorId', verifyToken, authorize('instructor'),
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT r.registration_id, r.student_id, r.section_id, r.semester, r.registered_at,
+      `SELECT r.registration_id, r.student_id, r.section_id, r.session_code AS semester, r.registered_at,
               st.first_name, st.last_name, st.email,
               s.section_name, c.course_code, c.course_name, c.course_type
        FROM REGISTRATION r
@@ -557,7 +557,7 @@ router.get('/status-summary/:studentId', verifyToken, async (req, res) => {
 
     // Get active semester
     const semResult = await conn.execute(
-      `SELECT semester FROM ACTIVE_SEMESTER WHERE id = 1`,
+      `SELECT session_code AS semester FROM ACTIVE_SEMESTER WHERE id = 1`,
       [], { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     const activeSemester = semResult.rows.length > 0 ? semResult.rows[0].SEMESTER : null;
@@ -572,7 +572,7 @@ router.get('/status-summary/:studentId', verifyToken, async (req, res) => {
        FROM REGISTRATION r
        JOIN SECTION s ON s.section_id = r.section_id
        JOIN COURSE c ON c.course_id = s.course_id
-       WHERE r.student_id = :sid AND r.semester = :sem
+       WHERE r.student_id = :sid AND r.session_code = :sem
        GROUP BY r.status, r.approval_status, c.course_type`,
       { sid: Number(studentId), sem: activeSemester },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }

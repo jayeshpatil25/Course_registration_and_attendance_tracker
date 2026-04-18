@@ -33,7 +33,7 @@ CREATE OR REPLACE PACKAGE ATTENDANCE_PKG AS
     PROCEDURE REGISTER_STUDENT (
         p_student_id    IN  NUMBER,
         p_section_id    IN  NUMBER,
-        p_semester      IN  VARCHAR2,
+        p_session_code  IN  VARCHAR2,
         p_reg_id        OUT NUMBER
     );
 
@@ -109,7 +109,7 @@ CREATE OR REPLACE PACKAGE BODY ATTENDANCE_PKG AS
     PROCEDURE REGISTER_STUDENT (
         p_student_id    IN  NUMBER,
         p_section_id    IN  NUMBER,
-        p_semester      IN  VARCHAR2,
+        p_session_code  IN  VARCHAR2,
         p_reg_id        OUT NUMBER
     ) IS
         v_count     NUMBER;
@@ -121,11 +121,11 @@ CREATE OR REPLACE PACKAGE BODY ATTENDANCE_PKG AS
         FROM REGISTRATION
         WHERE student_id = p_student_id
           AND section_id = p_section_id
-          AND semester   = p_semester;
+          AND session_code = p_session_code;
 
         IF v_count > 0 THEN
             RAISE_APPLICATION_ERROR(-20001,
-                'Student is already registered for this section/semester.');
+                'Student is already registered for this section/session.');
         END IF;
 
         -- 2. Check section capacity (with row-level lock to prevent race conditions)
@@ -136,9 +136,9 @@ CREATE OR REPLACE PACKAGE BODY ATTENDANCE_PKG AS
 
         SELECT COUNT(*) INTO v_enrolled
         FROM REGISTRATION
-        WHERE section_id = p_section_id
-          AND semester   = p_semester
-          AND status     = 'ACTIVE';
+        WHERE section_id   = p_section_id
+          AND session_code = p_session_code
+          AND status       = 'ACTIVE';
 
         IF v_enrolled >= v_capacity THEN
             RAISE_APPLICATION_ERROR(-20002,
@@ -146,8 +146,8 @@ CREATE OR REPLACE PACKAGE BODY ATTENDANCE_PKG AS
         END IF;
 
         -- 3. Insert registration
-        INSERT INTO REGISTRATION (student_id, section_id, semester, status)
-        VALUES (p_student_id, p_section_id, p_semester, 'ACTIVE')
+        INSERT INTO REGISTRATION (student_id, section_id, session_code, status)
+        VALUES (p_student_id, p_section_id, p_session_code, 'ACTIVE')
         RETURNING registration_id INTO p_reg_id;
 
         COMMIT;
@@ -364,4 +364,39 @@ CREATE OR REPLACE PACKAGE BODY ATTENDANCE_PKG AS
     END AUTHENTICATE_INSTRUCTOR;
 
 END ATTENDANCE_PKG;
+/
+
+-- ============================================================================
+-- SEMESTER CALCULATION HELPER (Admission year + selected session)
+--  - ODD term is first half: sem = 2*(year - admission_year) + 1
+--  - EVEN term is second half: sem = 2*(year - admission_year)
+-- ============================================================================
+CREATE OR REPLACE FUNCTION CALC_STUDENT_SEMESTER (
+    p_admission_year IN NUMBER,
+    p_session_code   IN VARCHAR2
+) RETURN NUMBER IS
+    v_term ACADEMIC_SESSION.term%TYPE;
+    v_year ACADEMIC_SESSION.session_year%TYPE;
+    v_sem  NUMBER;
+BEGIN
+    SELECT term, session_year
+    INTO v_term, v_year
+    FROM ACADEMIC_SESSION
+    WHERE session_code = p_session_code;
+
+    IF v_term = 'ODD' THEN
+        v_sem := (2 * (v_year - p_admission_year)) + 1;
+    ELSE
+        v_sem := (2 * (v_year - p_admission_year));
+    END IF;
+
+    IF v_sem < 1 THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN v_sem;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RETURN NULL;
+END;
 /

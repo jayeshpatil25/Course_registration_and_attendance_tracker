@@ -5,7 +5,7 @@ import api from '../services/api';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [tab, setTab] = useState('overview'); // 'overview' | 'fa-assignment'
+  const [tab, setTab] = useState('overview'); // 'overview' | 'people' | 'fa-assignment'
   
   // Semester State
   const [activeSemester, setActiveSemester] = useState('');
@@ -18,6 +18,7 @@ export default function AdminDashboard() {
   const [registrations, setRegistrations] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [instructors, setInstructors] = useState([]);
+  const [adminInstructors, setAdminInstructors] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -45,6 +46,29 @@ export default function AdminDashboard() {
     coordinatorId: ''
   });
 
+  // People Management Modal State
+  const [showInstructorModal, setShowInstructorModal] = useState(false);
+  const [newInstructor, setNewInstructor] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    deptId: '',
+    designation: 'Assistant Professor',
+    phone: '',
+  });
+
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [newStudent, setNewStudent] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    deptId: '',
+    enrollmentYear: '',
+    admissionYear: '',
+    phone: '',
+    dob: '',
+  });
+
   // FA Assignment
   const [faFilter, setFaFilter] = useState({ dept: '', unassignedOnly: false });
   const [selectedStudents, setSelectedStudents] = useState([]);
@@ -53,13 +77,14 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [semListRes, semRes, dptRes, crsRes, regRes, instrRes, stuRes] = await Promise.all([
+      const [semListRes, semRes, dptRes, crsRes, regRes, instrRes, adminInstrRes, stuRes] = await Promise.all([
         api.get('/admin/semester-list').catch(() => ({ data: [] })),
         api.get('/admin/semester').catch(() => ({ data: {} })),
         api.get('/lookup/departments').catch(() => ({ data: [] })),
         api.get('/admin/courses').catch(() => ({ data: [] })),
         api.get('/admin/registrations').catch(() => ({ data: [] })),
         api.get('/lookup/instructors').catch(() => ({ data: [] })),
+        api.get('/admin/instructors'),
         api.get('/admin/students').catch(() => ({ data: [] })),
       ]);
       
@@ -69,9 +94,12 @@ export default function AdminDashboard() {
       setCourses(crsRes.data);
       setRegistrations(regRes.data);
       setInstructors(instrRes.data);
+      setAdminInstructors(adminInstrRes.data);
       setStudents(stuRes.data);
     } catch (err) {
       console.error(err);
+      setMessage(err.response?.data?.error || 'Failed to load admin data.');
+      setTimeout(() => setMessage(''), 4000);
     } finally {
       setLoading(false);
     }
@@ -135,6 +163,88 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteCourse = async (courseId, courseCode) => {
+    if (!courseId) return;
+    const ok = window.confirm(`Delete course ${courseCode}? This will also delete its sections/registrations/attendance.`);
+    if (!ok) return;
+    try {
+      await api.delete(`/admin/courses/${courseId}`);
+      setMessage(`Course ${courseCode} deleted.`);
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete course.');
+    }
+  };
+
+  const handleDeleteSection = async (sectionId, courseCode, sectionName) => {
+    if (!sectionId) return;
+    const ok = window.confirm(`Delete section ${courseCode} - ${sectionName}? This will also delete registrations/attendance for this section.`);
+    if (!ok) return;
+    try {
+      await api.delete(`/admin/sections/${sectionId}`);
+      setMessage(`Section ${courseCode}-${sectionName} deleted.`);
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete section.');
+    }
+  };
+
+  const handleAddInstructor = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/admin/instructors', newInstructor);
+      setMessage(`Instructor ${newInstructor.firstName} added.`);
+      setShowInstructorModal(false);
+      setNewInstructor({ firstName: '', lastName: '', email: '', deptId: '', designation: 'Assistant Professor', phone: '' });
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add instructor.');
+    }
+  };
+
+  const handleDeleteInstructor = async (instructorId, name) => {
+    const ok = window.confirm(`Delete instructor ${name}? This is blocked if they are referenced in sections/FA/attendance.`);
+    if (!ok) return;
+    try {
+      await api.delete(`/admin/instructors/${instructorId}`);
+      setMessage(`Instructor ${name} deleted.`);
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete instructor.');
+    }
+  };
+
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/admin/students', newStudent);
+      setMessage(`Student ${newStudent.firstName} added.`);
+      setShowStudentModal(false);
+      setNewStudent({ firstName: '', lastName: '', email: '', deptId: '', enrollmentYear: '', admissionYear: '', phone: '', dob: '' });
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add student.');
+    }
+  };
+
+  const handleDeleteStudent = async (studentId, name) => {
+    const ok = window.confirm(`Delete student ${name}? This is blocked if they have registrations/attendance.`);
+    if (!ok) return;
+    try {
+      await api.delete(`/admin/students/${studentId}`);
+      setMessage(`Student ${name} deleted.`);
+      fetchData();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete student.');
+    }
+  };
+
   // FA Assignment
   const handleAssignFA = async () => {
     if (selectedStudents.length === 0 || !selectedFA) return;
@@ -188,6 +298,7 @@ export default function AdminDashboard() {
         <div className="mb-6 flex gap-2">
           {[
             { key: 'overview', label: '📊 Overview' },
+            { key: 'people', label: '🧑‍🎓 People' },
             { key: 'fa-assignment', label: '👨‍🏫 Batch Coordinator Assignment' },
           ].map((t) => (
             <button
@@ -293,6 +404,16 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-text-muted bg-white/5 px-2 py-1 rounded-md">{cg.dept}</span>
+                      <button
+                        onClick={() => {
+                          const anyRow = cg.sections[0] || courses.find(c => c.COURSE_CODE === cg.code);
+                          handleDeleteCourse(anyRow?.COURSE_ID, cg.code);
+                        }}
+                        className="btn-ghost !px-2 !py-1 text-xs text-warning"
+                        title="Delete course"
+                      >
+                        🗑 Delete
+                      </button>
                       <button 
                         onClick={() => {
                           setNewSection({...newSection, courseId: cg.sections[0]?.COURSE_ID || courses.find(c => c.COURSE_CODE === cg.code).COURSE_ID, semester: activeSemester});
@@ -315,6 +436,13 @@ export default function AdminDashboard() {
                             <span className="text-text-main">{sec.SEMESTER}</span>
                             <span>•</span>
                             <span>{sec.COORDINATOR || 'No coordinator'}</span>
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSection(sec.SECTION_ID, cg.code, sec.SECTION_NAME); }}
+                              className="ml-2 rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-warning border border-white/10 hover:bg-white/10"
+                              title="Delete section"
+                            >
+                              🗑
+                            </button>
                           </span>
                         ))}
                       </div>
@@ -370,6 +498,96 @@ export default function AdminDashboard() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── People Tab ──────────────────────────────── */}
+        {tab === 'people' && (
+          <div className="animate-fade-in-up space-y-6">
+            <div className="glass-card !p-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-text-main">Faculty & Students</h3>
+                <p className="text-xs text-text-muted">Add/remove faculty and students. Default password for new accounts is <span className="font-semibold text-text-main">password123</span>.</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setShowInstructorModal(true)} className="btn-primary !py-2 !px-3 text-xs">+ Add Faculty</button>
+                <button onClick={() => setShowStudentModal(true)} className="btn-primary !py-2 !px-3 text-xs">+ Add Student</button>
+              </div>
+            </div>
+
+            {/* Faculty Table */}
+            <div className="glass-card overflow-x-auto !p-0">
+              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                <h4 className="font-semibold text-text-main">Faculty ({adminInstructors.length})</h4>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-left text-text-muted">
+                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Designation</th>
+                    <th className="px-4 py-3 w-24">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminInstructors.map((i) => (
+                    <tr key={i.INSTRUCTOR_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-2 text-text-main font-medium">{i.FIRST_NAME} {i.LAST_NAME}</td>
+                      <td className="px-4 py-2 text-text-muted">{i.EMAIL}</td>
+                      <td className="px-4 py-2 text-text-muted">{i.DESIGNATION}</td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => handleDeleteInstructor(i.INSTRUCTOR_ID, `${i.FIRST_NAME} ${i.LAST_NAME}`)}
+                          className="btn-ghost !py-1 !px-2 text-xs text-warning"
+                        >
+                          🗑 Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {adminInstructors.length === 0 && (
+                    <tr><td colSpan="4" className="text-center py-6 text-text-muted italic">No faculty records.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Students Table */}
+            <div className="glass-card overflow-x-auto !p-0">
+              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                <h4 className="font-semibold text-text-main">Students ({students.length})</h4>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-left text-text-muted">
+                    <th className="px-4 py-3">Student</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Admission Year</th>
+                    <th className="px-4 py-3 w-24">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s) => (
+                    <tr key={s.STUDENT_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-2 text-text-main font-medium">{s.FIRST_NAME} {s.LAST_NAME}</td>
+                      <td className="px-4 py-2 text-text-muted">{s.EMAIL}</td>
+                      <td className="px-4 py-2 text-text-muted">{s.ADMISSION_YEAR || '-'}</td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => handleDeleteStudent(s.STUDENT_ID, `${s.FIRST_NAME} ${s.LAST_NAME}`)}
+                          className="btn-ghost !py-1 !px-2 text-xs text-warning"
+                        >
+                          🗑 Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {students.length === 0 && (
+                    <tr><td colSpan="4" className="text-center py-6 text-text-muted italic">No student records.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* ── Batch Coordinator Assignment Tab ──────────────────────────── */}
@@ -589,6 +807,114 @@ export default function AdminDashboard() {
               <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
                 <button type="button" onClick={() => setShowSectionModal(false)} className="btn-ghost">Cancel</button>
                 <button type="submit" className="btn-primary">Create Section</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Instructor Modal */}
+      {showInstructorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-text-main">Add New Faculty</h3>
+              <button onClick={() => setShowInstructorModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <form onSubmit={handleAddInstructor} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">First Name</label>
+                  <input type="text" className="input-field" value={newInstructor.firstName} onChange={(e) => setNewInstructor({ ...newInstructor, firstName: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Last Name</label>
+                  <input type="text" className="input-field" value={newInstructor.lastName} onChange={(e) => setNewInstructor({ ...newInstructor, lastName: e.target.value })} required />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Email (optional)</label>
+                <input type="email" className="input-field" placeholder="firstname@unitrack.edu" value={newInstructor.email} onChange={(e) => setNewInstructor({ ...newInstructor, email: e.target.value })} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Department</label>
+                <select className="input-field appearance-none bg-surface" value={newInstructor.deptId} onChange={(e) => setNewInstructor({ ...newInstructor, deptId: e.target.value })} required>
+                  <option value="" disabled>Select a department</option>
+                  {departments.map(d => <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Designation</label>
+                  <input type="text" className="input-field" value={newInstructor.designation} onChange={(e) => setNewInstructor({ ...newInstructor, designation: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Phone (optional)</label>
+                  <input type="text" className="input-field" value={newInstructor.phone} onChange={(e) => setNewInstructor({ ...newInstructor, phone: e.target.value })} />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+                <button type="button" onClick={() => setShowInstructorModal(false)} className="btn-ghost">Cancel</button>
+                <button type="submit" className="btn-primary">Create Faculty</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Student Modal */}
+      {showStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-text-main">Add New Student</h3>
+              <button onClick={() => setShowStudentModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <form onSubmit={handleAddStudent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">First Name</label>
+                  <input type="text" className="input-field" value={newStudent.firstName} onChange={(e) => setNewStudent({ ...newStudent, firstName: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Last Name</label>
+                  <input type="text" className="input-field" value={newStudent.lastName} onChange={(e) => setNewStudent({ ...newStudent, lastName: e.target.value })} required />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Email (optional)</label>
+                <input type="email" className="input-field" placeholder="firstname@unitrack.edu" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Department</label>
+                <select className="input-field appearance-none bg-surface" value={newStudent.deptId} onChange={(e) => setNewStudent({ ...newStudent, deptId: e.target.value })} required>
+                  <option value="" disabled>Select a department</option>
+                  {departments.map(d => <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Admission Year</label>
+                  <input type="number" min="2000" max="2100" className="input-field" value={newStudent.admissionYear} onChange={(e) => setNewStudent({ ...newStudent, admissionYear: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Enrollment Year</label>
+                  <input type="number" min="2000" max="2100" className="input-field" value={newStudent.enrollmentYear} onChange={(e) => setNewStudent({ ...newStudent, enrollmentYear: e.target.value })} required />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Phone (optional)</label>
+                  <input type="text" className="input-field" value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">DOB (optional)</label>
+                  <input type="date" className="input-field" value={newStudent.dob} onChange={(e) => setNewStudent({ ...newStudent, dob: e.target.value })} />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+                <button type="button" onClick={() => setShowStudentModal(false)} className="btn-ghost">Cancel</button>
+                <button type="submit" className="btn-primary">Create Student</button>
               </div>
             </form>
           </div>

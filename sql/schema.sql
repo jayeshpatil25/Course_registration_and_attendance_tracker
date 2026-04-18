@@ -90,7 +90,7 @@ CREATE TABLE STUDENT (
     password_hash   VARCHAR2(256)   NOT NULL,
     dept_id         NUMBER(10)      NOT NULL,
     enrollment_year NUMBER(4)       NOT NULL,
-    semester        NUMBER(2)       DEFAULT 1,
+    admission_year  NUMBER(4)       NOT NULL,
     phone           VARCHAR2(20),
     dob             DATE,
     fa_id           NUMBER(10),
@@ -99,10 +99,27 @@ CREATE TABLE STUDENT (
         FOREIGN KEY (dept_id) REFERENCES DEPT(dept_id),
     CONSTRAINT fk_student_fa
         FOREIGN KEY (fa_id) REFERENCES INSTRUCTOR(instructor_id),
-    CONSTRAINT chk_student_semester
-        CHECK (semester BETWEEN 1 AND 12),
     CONSTRAINT chk_student_enrollment_yr
         CHECK (enrollment_year BETWEEN 2000 AND 2100)
+    ,
+    CONSTRAINT chk_student_admission_yr
+        CHECK (admission_year BETWEEN 2000 AND 2100)
+)
+INITRANS 2 MAXTRANS 255
+STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
+
+-- ============================================================================
+-- 4b. ACADEMIC_SESSION  (e.g. ODD-2025, EVEN-2026)
+-- ============================================================================
+CREATE TABLE ACADEMIC_SESSION (
+    session_code    VARCHAR2(20)    PRIMARY KEY,          -- e.g. 'ODD-2025'
+    term            VARCHAR2(4)     NOT NULL,              -- 'ODD' or 'EVEN'
+    session_year    NUMBER(4)       NOT NULL,              -- 2025, 2026, ...
+    created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT chk_session_term
+        CHECK (term IN ('ODD', 'EVEN')),
+    CONSTRAINT chk_session_year
+        CHECK (session_year BETWEEN 2000 AND 2100)
 )
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
@@ -130,6 +147,22 @@ CREATE TABLE COURSE (
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
 
+-- ============================================================================
+-- 5b. COURSE_OFFERED_SEMESTER  (which academic semester(s) a course is offered)
+-- ============================================================================
+CREATE TABLE COURSE_OFFERED_SEMESTER (
+    course_id        NUMBER(10)    NOT NULL,
+    semester_number  NUMBER(2)     NOT NULL,              -- 1..8
+    created_at       TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_course_offered_sem PRIMARY KEY (course_id, semester_number),
+    CONSTRAINT fk_cos_course
+        FOREIGN KEY (course_id) REFERENCES COURSE(course_id) ON DELETE CASCADE,
+    CONSTRAINT chk_cos_semester
+        CHECK (semester_number BETWEEN 1 AND 12)
+)
+INITRANS 2 MAXTRANS 255
+STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
+
 
 -- ============================================================================
 -- 6. SECTION  (a section of a course for a given semester)
@@ -138,17 +171,23 @@ CREATE TABLE SECTION (
     section_id      NUMBER(10)      GENERATED ALWAYS AS IDENTITY  PRIMARY KEY,
     section_name    VARCHAR2(10)    NOT NULL,
     course_id       NUMBER(10)      NOT NULL,
-    semester        VARCHAR2(20)    NOT NULL,           -- e.g. 'FALL-2025'
+    session_code    VARCHAR2(20)    NOT NULL,           -- e.g. 'ODD-2025'
+    target_semester NUMBER(2),                          -- e.g. 5 (Academic semester 1-8)
+    instructor_id   NUMBER(10),                         -- prof teaching this section in this session
     capacity        NUMBER(5)       DEFAULT 60  NOT NULL,
     room            VARCHAR2(30),
     schedule        VARCHAR2(100),                       -- e.g. 'MWF 09:00-10:00'
     created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT fk_section_course
         FOREIGN KEY (course_id) REFERENCES COURSE(course_id),
+    CONSTRAINT fk_section_session
+        FOREIGN KEY (session_code) REFERENCES ACADEMIC_SESSION(session_code),
+    CONSTRAINT fk_section_instructor
+        FOREIGN KEY (instructor_id) REFERENCES INSTRUCTOR(instructor_id),
     CONSTRAINT chk_section_capacity
         CHECK (capacity > 0),
     CONSTRAINT uq_section_course_sem
-        UNIQUE (section_name, course_id, semester)
+        UNIQUE (section_name, course_id, session_code)
 )
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
@@ -215,7 +254,7 @@ CREATE TABLE REGISTRATION (
     registration_id NUMBER(10)      GENERATED ALWAYS AS IDENTITY  PRIMARY KEY,
     student_id      NUMBER(10)      NOT NULL,
     section_id      NUMBER(10)      NOT NULL,
-    semester        VARCHAR2(20)    NOT NULL,
+    session_code    VARCHAR2(20)    NOT NULL,
     registered_at   TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     status          VARCHAR2(15)    DEFAULT 'PENDING'  NOT NULL,
     approval_status VARCHAR2(15)    DEFAULT 'PENDING'  NOT NULL,
@@ -224,6 +263,8 @@ CREATE TABLE REGISTRATION (
         FOREIGN KEY (student_id) REFERENCES STUDENT(student_id),
     CONSTRAINT fk_reg_section
         FOREIGN KEY (section_id) REFERENCES SECTION(section_id),
+    CONSTRAINT fk_reg_session
+        FOREIGN KEY (session_code) REFERENCES ACADEMIC_SESSION(session_code),
     CONSTRAINT fk_reg_approved_by
         FOREIGN KEY (approved_by) REFERENCES INSTRUCTOR(instructor_id),
     CONSTRAINT chk_reg_status
@@ -231,7 +272,7 @@ CREATE TABLE REGISTRATION (
     CONSTRAINT chk_reg_approval
         CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED')),
     CONSTRAINT uq_reg_student_section_sem
-        UNIQUE (student_id, section_id, semester)
+        UNIQUE (student_id, section_id, session_code)
 )
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
@@ -297,9 +338,11 @@ STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
 -- ============================================================================
 CREATE TABLE ACTIVE_SEMESTER (
     id              NUMBER(1)       DEFAULT 1 PRIMARY KEY,
-    semester        VARCHAR2(20)    NOT NULL,
+    session_code    VARCHAR2(20)    NOT NULL,
     updated_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
-    CONSTRAINT chk_active_sem_single CHECK (id = 1)
+    CONSTRAINT chk_active_sem_single CHECK (id = 1),
+    CONSTRAINT fk_active_sem_session
+        FOREIGN KEY (session_code) REFERENCES ACADEMIC_SESSION(session_code)
 )
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
