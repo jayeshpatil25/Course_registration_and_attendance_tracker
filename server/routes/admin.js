@@ -183,9 +183,16 @@ router.get('/courses', verifyToken, authorize('admin'), async (_req, res) => {
        LEFT JOIN INSTRUCTOR i ON i.instructor_id = sc.instructor_id
        WHERE EXISTS (
          SELECT 1 FROM COURSE_OFFERED_SEMESTER cos
-         JOIN ACADEMIC_SESSION acs ON acs.session_code = cos.session_code
          WHERE cos.course_id = c.course_id
-         AND (:sem2 IS NULL OR cos.session_code = :sem2)
+         AND (
+           :sem2 IS NULL 
+           OR (
+             (SELECT term FROM ACADEMIC_SESSION WHERE session_code = :sem2) = 'ODD' AND MOD(cos.semester_number, 2) = 1
+           )
+           OR (
+             (SELECT term FROM ACADEMIC_SESSION WHERE session_code = :sem2) = 'EVEN' AND MOD(cos.semester_number, 2) = 0
+           )
+         )
        )
        ORDER BY c.course_code, s.session_code, s.section_name`,
       { sem: activeSem, sem2: activeSem },
@@ -229,10 +236,10 @@ router.get('/registrations', verifyToken, authorize('admin'), async (_req, res) 
 
 // POST /api/admin/courses — create a new course
 router.post('/courses', verifyToken, authorize('admin'), async (req, res) => {
-  const { courseCode, courseName, deptId, credits, description, courseType } = req.body;
+  const { courseCode, courseName, deptId, semesterNumber, credits, description, courseType } = req.body;
 
-  if (!courseCode || !courseName || !deptId || !credits) {
-    return res.status(400).json({ error: 'Course Code, Name, Department, and Credits are required.' });
+  if (!courseCode || !courseName || !deptId || !credits || !semesterNumber) {
+    return res.status(400).json({ error: 'Course Code, Name, Department, Semester, and Credits are required.' });
   }
 
   const cType = (courseType || 'THEORY').toUpperCase();
@@ -256,14 +263,27 @@ router.post('/courses', verifyToken, authorize('admin'), async (req, res) => {
         ctype: cType,
         id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
-      { autoCommit: true }
+      { autoCommit: false }
     );
+    
+    const courseId = result.outBinds.id[0];
+    
+    await conn.execute(
+      `INSERT INTO COURSE_OFFERED_SEMESTER (course_id, semester_number)
+       VALUES (:cid, :sem)`,
+      { cid: courseId, sem: Number(semesterNumber) },
+      { autoCommit: false }
+    );
+    
+    await conn.execute('COMMIT');
+    
     return res.status(201).json({
       message: 'Course created successfully.',
-      courseId: result.outBinds.id[0]
+      courseId: courseId
     });
   } catch (err) {
     console.error('Create course error:', err);
+    if (conn) try { await conn.execute('ROLLBACK'); } catch (e) {}
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'Course code already exists.' });
     }
@@ -469,7 +489,7 @@ router.post('/students', verifyToken, authorize('admin'), async (req, res) => {
 
     const requestedEmail = email
       ? String(email).trim().toLowerCase()
-      : `${String(firstName).trim().toLowerCase()}@unitrack.edu`;
+      : `${String(firstName).trim().toLowerCase()}@aimsreg.edu`;
     const studentEmail = await makeUniqueEmail(conn, 'STUDENT', requestedEmail);
 
     const result = await conn.execute(
@@ -576,7 +596,7 @@ router.post('/instructors', verifyToken, authorize('admin'), async (req, res) =>
     const passHash = await bcrypt.hash('password123', 10);
     const requestedEmail = email
       ? String(email).trim().toLowerCase()
-      : `${String(firstName).trim().toLowerCase()}@unitrack.edu`;
+      : `${String(firstName).trim().toLowerCase()}@aimsreg.edu`;
     const instructorEmail = await makeUniqueEmail(conn, 'INSTRUCTOR', requestedEmail);
 
     const result = await conn.execute(

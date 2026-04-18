@@ -29,6 +29,7 @@ export default function AdminDashboard() {
     courseCode: '',
     courseName: '',
     deptId: '',
+    semesterNumber: 1,
     credits: 3,
     description: '',
     courseType: 'THEORY'
@@ -145,7 +146,7 @@ export default function AdminDashboard() {
       await api.post('/admin/courses', newCourse);
       setMessage(`Course ${newCourse.courseCode.toUpperCase()} added.`);
       setShowCourseModal(false);
-      setNewCourse({ courseCode: '', courseName: '', deptId: '', credits: 3, description: '', courseType: 'THEORY' });
+      setNewCourse({ courseCode: '', courseName: '', deptId: '', semesterNumber: 1, credits: 3, description: '', courseType: 'THEORY' });
       fetchData(); // refresh courses
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -829,12 +830,20 @@ export default function AdminDashboard() {
                 <label className="mb-1.5 block text-sm font-medium text-text-muted">Course Name</label>
                 <input type="text" className="input-field" placeholder="e.g. Advanced Databases" value={newCourse.courseName} onChange={(e) => setNewCourse({...newCourse, courseName: e.target.value})} required maxLength={200} />
               </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-text-muted">Department</label>
-                <select className="input-field appearance-none bg-surface" value={newCourse.deptId} onChange={(e) => setNewCourse({...newCourse, deptId: e.target.value})} required>
-                  <option value="" disabled>Select a department</option>
-                  {departments.map(d => <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Department</label>
+                  <select className="input-field appearance-none bg-surface" value={newCourse.deptId} onChange={(e) => setNewCourse({...newCourse, deptId: e.target.value})} required>
+                    <option value="" disabled>Select a department</option>
+                    {departments.map(d => <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Semester (1-8)</label>
+                  <select className="input-field appearance-none bg-surface" value={newCourse.semesterNumber} onChange={(e) => setNewCourse({...newCourse, semesterNumber: e.target.value})} required>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => <option key={sem} value={sem}>Semester {sem}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -949,7 +958,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-muted">Email (optional)</label>
-                <input type="email" className="input-field" placeholder="firstname@unitrack.edu" value={newInstructor.email} onChange={(e) => setNewInstructor({ ...newInstructor, email: e.target.value })} />
+                <input type="email" className="input-field" placeholder="firstname@aimsreg.edu" value={newInstructor.email} onChange={(e) => setNewInstructor({ ...newInstructor, email: e.target.value })} />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-muted">Department</label>
@@ -998,7 +1007,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-muted">Email (optional)</label>
-                <input type="email" className="input-field" placeholder="firstname@unitrack.edu" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} />
+                <input type="email" className="input-field" placeholder="firstname@aimsreg.edu" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-muted">Department</label>

@@ -48,7 +48,7 @@ export default function Navbar() {
           </div>
           <div>
             <h1 className="text-lg font-bold leading-tight text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>
-              UniTrack
+              AIMSREG
             </h1>
             <p className="text-[11px] text-text-muted tracking-wide">VNIT Academic Portal</p>
           </div>

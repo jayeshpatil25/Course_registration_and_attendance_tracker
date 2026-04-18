@@ -1,5 +1,5 @@
 // ============================================================
-// Playwright E2E Tests — UniTrack Attendance Tracker
+// Playwright E2E Tests — AIMSREG Attendance Tracker
 // ============================================================
 import { test, expect } from '@playwright/test';
 
@@ -40,19 +40,19 @@ test.describe('Login Page', () => {
   });
 
   test('should login as student and redirect to /student', async ({ page }) => {
-    await loginAs(page, 'amit@unitrack.edu', 'student');
+    await loginAs(page, 'amit@aimsreg.edu', 'student');
     await expect(page).toHaveURL(/\/student/);
     await expect(page.locator('text=Welcome, Amit')).toBeVisible();
   });
 
   test('should login as faculty and redirect to /faculty', async ({ page }) => {
-    await loginAs(page, 'rajesh@unitrack.edu', 'instructor');
+    await loginAs(page, 'rajesh@aimsreg.edu', 'instructor');
     await expect(page).toHaveURL(/\/faculty/);
     await expect(page.locator('text=Faculty Dashboard')).toBeVisible();
   });
 
   test('should login as admin and redirect to /admin', async ({ page }) => {
-    await loginAs(page, 'admin@unitrack.edu', 'admin');
+    await loginAs(page, 'admin@aimsreg.edu', 'admin');
     await expect(page).toHaveURL(/\/admin/);
     await expect(page.locator('text=Admin Dashboard')).toBeVisible();
   });
@@ -62,7 +62,7 @@ test.describe('Login Page', () => {
 
 test.describe('Student Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'amit@unitrack.edu', 'student');
+    await loginAs(page, 'amit@aimsreg.edu', 'student');
   });
 
   test('should display enrolled courses with coordinator info', async ({ page }) => {
@@ -126,7 +126,7 @@ test.describe('Student Dashboard', () => {
 
 test.describe('Student Profile', () => {
   test('should display student details with VNIT college', async ({ page }) => {
-    await loginAs(page, 'amit@unitrack.edu', 'student');
+    await loginAs(page, 'amit@aimsreg.edu', 'student');
     await page.goto(`${BASE}/student/profile`);
     await expect(page.locator('text=Amit')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=VNIT')).toBeVisible();
@@ -139,7 +139,7 @@ test.describe('Student Profile', () => {
 
 test.describe('Faculty Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'rajesh@unitrack.edu', 'instructor');
+    await loginAs(page, 'rajesh@aimsreg.edu', 'instructor');
   });
 
   test('should display attendance and approvals tabs', async ({ page }) => {
@@ -211,7 +211,7 @@ test.describe('Faculty Dashboard', () => {
 
 test.describe('Faculty Profile', () => {
   test('should display faculty details with VNIT college', async ({ page }) => {
-    await loginAs(page, 'rajesh@unitrack.edu', 'instructor');
+    await loginAs(page, 'rajesh@aimsreg.edu', 'instructor');
     await page.goto(`${BASE}/faculty/profile`);
     await page.waitForTimeout(3000);
     await expect(page.locator('text=Rajesh')).toBeVisible({ timeout: 10000 });
@@ -223,7 +223,7 @@ test.describe('Faculty Profile', () => {
 
 test.describe('Admin Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'admin@unitrack.edu', 'admin');
+    await loginAs(page, 'admin@aimsreg.edu', 'admin');
   });
 
   test('should display semester management section', async ({ page }) => {
@@ -270,7 +270,7 @@ test.describe('Admin Dashboard', () => {
 
 test.describe('Registration Approval Workflow', () => {
   test('student registration creates PENDING status', async ({ page }) => {
-    await loginAs(page, 'sneha@unitrack.edu', 'student');
+    await loginAs(page, 'sneha@aimsreg.edu', 'student');
     // Sneha has some courses. Let's check her dashboard shows PENDING badge if any
     await page.waitForSelector('.glass-card', { timeout: 10000 });
     // Check if there are any PENDING badges visible
@@ -280,7 +280,7 @@ test.describe('Registration Approval Workflow', () => {
 
   test('faculty can approve a pending registration', async ({ page }) => {
     // Login as Rajesh who has pending approvals
-    await loginAs(page, 'rajesh@unitrack.edu', 'instructor');
+    await loginAs(page, 'rajesh@aimsreg.edu', 'instructor');
     await page.click('text=Approvals');
     await page.waitForTimeout(2000);
     
@@ -299,7 +299,7 @@ test.describe('Registration Approval Workflow', () => {
 
 test.describe('Drop Course', () => {
   test('student should see Drop Course button on active courses', async ({ page }) => {
-    await loginAs(page, 'amit@unitrack.edu', 'student');
+    await loginAs(page, 'amit@aimsreg.edu', 'student');
     await page.waitForSelector('.glass-card', { timeout: 10000 });
     const dropBtn = page.locator('text=Drop Course').first();
     await expect(dropBtn).toBeVisible({ timeout: 5000 });
@@ -310,7 +310,7 @@ test.describe('Drop Course', () => {
 
 test.describe('Logout', () => {
   test('should logout and redirect to login', async ({ page }) => {
-    await loginAs(page, 'amit@unitrack.edu', 'student');
+    await loginAs(page, 'amit@aimsreg.edu', 'student');
     await page.click('#logout-btn');
     await expect(page).toHaveURL(BASE + '/');
   });

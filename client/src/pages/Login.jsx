@@ -41,7 +41,7 @@ export default function Login() {
             V
           </div>
           <h1 className="text-3xl font-bold text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>
-            UniTrack
+            AIMSREG
           </h1>
           <p className="mt-1 text-text-muted text-sm">
             Visvesvaraya National Institute of Technology, Nagpur
@@ -81,7 +81,7 @@ export default function Login() {
                 id="email-input"
                 type="email"
                 className="input-field"
-                placeholder={role === 'student' ? 'student@unitrack.edu' : role === 'instructor' ? 'faculty@unitrack.edu' : 'admin@unitrack.edu'}
+                placeholder={role === 'student' ? 'student@aimsreg.edu' : role === 'instructor' ? 'faculty@aimsreg.edu' : 'admin@aimsreg.edu'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -127,7 +127,7 @@ export default function Login() {
         </div>
 
         <p className="mt-6 text-center text-xs text-text-muted">
-          © 2025 UniTrack — VNIT Nagpur Academic Portal
+          © 2025 AIMSREG — VNIT Nagpur Academic Portal
         </p>
       </div>
     </div>

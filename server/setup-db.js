@@ -72,7 +72,7 @@ async function run() {
     // Admin
     await conn.execute(
       `INSERT INTO ADMIN (admin_name, email, password_hash) VALUES (:n, :e, :p)`,
-      { n: 'System Admin', e: 'admin@unitrack.edu', p: passHash }
+      { n: 'System Admin', e: 'admin@aimsreg.edu', p: passHash }
     );
     console.log('  ✓ Admin user');
 
@@ -117,7 +117,7 @@ async function run() {
       const parts = fullName.trim().split(/\s+/);
       const firstName = parts[0];
       const lastName = parts.slice(1).join(' ') || '-';
-      const email = `${firstName.toLowerCase()}@unitrack.edu`;
+      const email = `${firstName.toLowerCase()}@aimsreg.edu`;
       const instructorId = await ins(
         `INSERT INTO INSTRUCTOR (first_name, last_name, email, password_hash, dept_id)
          VALUES (:f, :l, :e, :p, :d)
@@ -164,7 +164,7 @@ async function run() {
       const parts = s.fullName.trim().split(/\s+/);
       const firstName = parts[0];
       const lastName = parts.slice(1).join(' ') || '-';
-      const email = `${firstName.toLowerCase()}@unitrack.edu`;
+      const email = `${firstName.toLowerCase()}@aimsreg.edu`;
       const enrollNum = generateEnrollmentNumber(s.admissionYear, csDept);
 
       const studentId = await ins(
@@ -406,7 +406,7 @@ async function run() {
     console.log('  College: VNIT Nagpur');
     console.log('');
     console.log('  Logins (password: password123):');
-    console.log('    Admin:   admin@unitrack.edu');
+    console.log('    Admin:   admin@aimsreg.edu');
     console.log('    (Other accounts cleared as per request)');
     console.log('══════════════════════════════════════════════\n');
 
