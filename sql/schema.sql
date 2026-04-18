@@ -349,5 +349,45 @@ INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
 
 -- ============================================================================
+-- TRIGGERS (Data Integrity and Management)
+-- ============================================================================
+
+-- Automatically update 'updated_at' timestamp on any row update
+CREATE OR REPLACE TRIGGER trg_active_sem_update
+BEFORE UPDATE ON ACTIVE_SEMESTER
+FOR EACH ROW
+BEGIN
+    :NEW.updated_at := SYSTIMESTAMP;
+END;
+/
+
+-- Enforce lowercase emails for students to avoid authentication case issues
+CREATE OR REPLACE TRIGGER trg_student_email_lower
+BEFORE INSERT OR UPDATE ON STUDENT
+FOR EACH ROW
+BEGIN
+    :NEW.email := LOWER(:NEW.email);
+END;
+/
+
+-- Enforce lowercase emails for instructors to avoid authentication case issues
+CREATE OR REPLACE TRIGGER trg_instructor_email_lower
+BEFORE INSERT OR UPDATE ON INSTRUCTOR
+FOR EACH ROW
+BEGIN
+    :NEW.email := LOWER(:NEW.email);
+END;
+/
+
+-- Enforce lowercase emails for admins to avoid authentication case issues
+CREATE OR REPLACE TRIGGER trg_admin_email_lower
+BEFORE INSERT OR UPDATE ON ADMIN
+FOR EACH ROW
+BEGIN
+    :NEW.email := LOWER(:NEW.email);
+END;
+/
+
+-- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
