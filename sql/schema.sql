@@ -44,6 +44,7 @@ STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
 CREATE TABLE DEPT (
     dept_id         NUMBER(10)      GENERATED ALWAYS AS IDENTITY  PRIMARY KEY,
     dept_name       VARCHAR2(200)   NOT NULL,
+    dept_code       VARCHAR2(10)    NOT NULL  UNIQUE,
     college_id      NUMBER(10)      NOT NULL,
     hod_name        VARCHAR2(200),
     created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
@@ -83,25 +84,22 @@ STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
 -- 4. STUDENT
 -- ============================================================================
 CREATE TABLE STUDENT (
-    student_id      NUMBER(10)      GENERATED ALWAYS AS IDENTITY  PRIMARY KEY,
-    first_name      VARCHAR2(100)   NOT NULL,
-    last_name       VARCHAR2(100)   NOT NULL,
-    email           VARCHAR2(150)   NOT NULL  UNIQUE,
-    password_hash   VARCHAR2(256)   NOT NULL,
-    dept_id         NUMBER(10)      NOT NULL,
-    enrollment_year NUMBER(4)       NOT NULL,
-    admission_year  NUMBER(4)       NOT NULL,
-    phone           VARCHAR2(20),
-    dob             DATE,
-    fa_id           NUMBER(10),
-    created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    student_id        NUMBER(10)      GENERATED ALWAYS AS IDENTITY  PRIMARY KEY,
+    enrollment_number VARCHAR2(20)    UNIQUE,
+    first_name        VARCHAR2(100)   NOT NULL,
+    last_name         VARCHAR2(100)   NOT NULL,
+    email             VARCHAR2(150)   NOT NULL  UNIQUE,
+    password_hash     VARCHAR2(256)   NOT NULL,
+    dept_id           NUMBER(10)      NOT NULL,
+    admission_year    NUMBER(4)       NOT NULL,
+    phone             VARCHAR2(20),
+    dob               DATE,
+    fa_id             NUMBER(10),
+    created_at        TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT fk_student_dept
         FOREIGN KEY (dept_id) REFERENCES DEPT(dept_id),
     CONSTRAINT fk_student_fa
         FOREIGN KEY (fa_id) REFERENCES INSTRUCTOR(instructor_id),
-    CONSTRAINT chk_student_enrollment_yr
-        CHECK (enrollment_year BETWEEN 2000 AND 2100)
-    ,
     CONSTRAINT chk_student_admission_yr
         CHECK (admission_year BETWEEN 2000 AND 2100)
 )
@@ -253,7 +251,8 @@ STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);
 CREATE TABLE REGISTRATION (
     registration_id NUMBER(10)      GENERATED ALWAYS AS IDENTITY  PRIMARY KEY,
     student_id      NUMBER(10)      NOT NULL,
-    section_id      NUMBER(10)      NOT NULL,
+    course_id       NUMBER(10)      NOT NULL,
+    section_id      NUMBER(10),
     session_code    VARCHAR2(20)    NOT NULL,
     registered_at   TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     status          VARCHAR2(15)    DEFAULT 'PENDING'  NOT NULL,
@@ -261,6 +260,8 @@ CREATE TABLE REGISTRATION (
     approved_by     NUMBER(10),
     CONSTRAINT fk_reg_student
         FOREIGN KEY (student_id) REFERENCES STUDENT(student_id),
+    CONSTRAINT fk_reg_course
+        FOREIGN KEY (course_id) REFERENCES COURSE(course_id),
     CONSTRAINT fk_reg_section
         FOREIGN KEY (section_id) REFERENCES SECTION(section_id),
     CONSTRAINT fk_reg_session
@@ -271,8 +272,8 @@ CREATE TABLE REGISTRATION (
         CHECK (status IN ('ACTIVE', 'PENDING', 'DROPPED', 'COMPLETED', 'REJECTED')),
     CONSTRAINT chk_reg_approval
         CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED')),
-    CONSTRAINT uq_reg_student_section_sem
-        UNIQUE (student_id, section_id, session_code)
+    CONSTRAINT uq_reg_student_course_sem
+        UNIQUE (student_id, course_id, session_code)
 )
 INITRANS 2 MAXTRANS 255
 STORAGE (INITIAL 64K NEXT 1M MINEXTENTS 1);

@@ -5,7 +5,7 @@ import api from '../services/api';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [tab, setTab] = useState('overview'); // 'overview' | 'people' | 'fa-assignment'
+  const [tab, setTab] = useState('overview'); // 'overview' | 'people' | 'fa-assignment' | 'section-assignment'
   
   // Semester State
   const [activeSemester, setActiveSemester] = useState('');
@@ -63,11 +63,15 @@ export default function AdminDashboard() {
     lastName: '',
     email: '',
     deptId: '',
-    enrollmentYear: '',
     admissionYear: '',
     phone: '',
     dob: '',
   });
+
+  // Section Assignment
+  const [unassignedRegs, setUnassignedRegs] = useState([]);
+  const [sectionOptions, setSectionOptions] = useState({});  // keyed by courseId
+  const [assignLoading, setAssignLoading] = useState(null);
 
   // FA Assignment
   const [faFilter, setFaFilter] = useState({ dept: '', unassignedOnly: false });
@@ -224,7 +228,7 @@ export default function AdminDashboard() {
       await api.post('/admin/students', newStudent);
       setMessage(`Student ${newStudent.firstName} added.`);
       setShowStudentModal(false);
-      setNewStudent({ firstName: '', lastName: '', email: '', deptId: '', enrollmentYear: '', admissionYear: '', phone: '', dob: '' });
+      setNewStudent({ firstName: '', lastName: '', email: '', deptId: '', admissionYear: '', phone: '', dob: '' });
       fetchData();
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -260,6 +264,45 @@ export default function AdminDashboard() {
       alert(err.response?.data?.error || 'Failed to assign FA.');
     } finally { setFaActionLoading(false); }
   };
+
+  // Fetch unassigned registrations for section assignment tab
+  const fetchUnassignedRegs = async () => {
+    try {
+      const { data } = await api.get('/admin/unassigned-registrations');
+      setUnassignedRegs(data);
+      // Prefetch sections for each unique course
+      const courseIds = [...new Set(data.map(r => r.COURSE_ID))];
+      for (const cid of courseIds) {
+        if (!sectionOptions[cid]) {
+          try {
+            const secRes = await api.get(`/lookup/sections?courseId=${cid}&semester=${activeSemester}`);
+            setSectionOptions(prev => ({ ...prev, [cid]: secRes.data }));
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error('Fetch unassigned registrations error:', err);
+    }
+  };
+
+  const handleAssignSection = async (registrationId, sectionId) => {
+    if (!sectionId) return;
+    setAssignLoading(registrationId);
+    try {
+      await api.put('/admin/assign-section', { registrationId, sectionId: Number(sectionId) });
+      setMessage('Section assigned successfully.');
+      fetchUnassignedRegs();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to assign section.');
+    } finally {
+      setAssignLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'section-assignment') fetchUnassignedRegs();
+  }, [tab]);
 
   const toggleStudent = (sid) => {
     setSelectedStudents(prev => prev.includes(sid) ? prev.filter(s => s !== sid) : [...prev, sid]);
@@ -300,6 +343,7 @@ export default function AdminDashboard() {
             { key: 'overview', label: '📊 Overview' },
             { key: 'people', label: '🧑‍🎓 People' },
             { key: 'fa-assignment', label: '👨‍🏫 Batch Coordinator Assignment' },
+            { key: 'section-assignment', label: '📋 Section Assignment' },
           ].map((t) => (
             <button
               key={t.key}
@@ -559,18 +603,24 @@ export default function AdminDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-left text-text-muted">
+                    <th className="px-4 py-3">Enrollment No.</th>
                     <th className="px-4 py-3">Student</th>
                     <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Dept</th>
                     <th className="px-4 py-3">Admission Year</th>
+                    <th className="px-4 py-3">Sem</th>
                     <th className="px-4 py-3 w-24">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {students.map((s) => (
                     <tr key={s.STUDENT_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-2 text-primary-light font-mono font-semibold">{s.ENROLLMENT_NUMBER || '-'}</td>
                       <td className="px-4 py-2 text-text-main font-medium">{s.FIRST_NAME} {s.LAST_NAME}</td>
                       <td className="px-4 py-2 text-text-muted">{s.EMAIL}</td>
+                      <td className="px-4 py-2 text-text-muted">{s.DEPT_CODE || '-'}</td>
                       <td className="px-4 py-2 text-text-muted">{s.ADMISSION_YEAR || '-'}</td>
+                      <td className="px-4 py-2 text-text-muted">{s.SEMESTER || '-'}</td>
                       <td className="px-4 py-2">
                         <button
                           onClick={() => handleDeleteStudent(s.STUDENT_ID, `${s.FIRST_NAME} ${s.LAST_NAME}`)}
@@ -582,7 +632,7 @@ export default function AdminDashboard() {
                     </tr>
                   ))}
                   {students.length === 0 && (
-                    <tr><td colSpan="4" className="text-center py-6 text-text-muted italic">No student records.</td></tr>
+                    <tr><td colSpan="7" className="text-center py-6 text-text-muted italic">No student records.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -674,7 +724,7 @@ export default function AdminDashboard() {
                         <p className="text-xs text-text-muted">{s.EMAIL}</p>
                       </td>
                       <td className="px-4 py-2 text-text-muted">{s.DEPT_NAME}</td>
-                      <td className="px-4 py-2 text-text-muted">{s.ENROLLMENT_YEAR} / Sem {s.SEMESTER}</td>
+                      <td className="px-4 py-2 text-text-muted">{s.ENROLLMENT_NUMBER || '-'} / Sem {s.SEMESTER}</td>
                       <td className="px-4 py-2">
                         {s.FA_NAME ? (
                           <span className="rounded-md bg-success/15 px-2 py-1 text-xs text-success font-semibold">{s.FA_NAME}</span>
@@ -692,6 +742,71 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ── Section Assignment Tab ────────────────────────── */}
+        {tab === 'section-assignment' && (
+          <div className="animate-fade-in-up">
+            <div className="mb-4 rounded-xl border border-accent/20 bg-accent/5 p-4 text-sm text-text-muted">
+              <p className="font-semibold text-accent mb-1">📋 Section Assignment</p>
+              <p className="text-xs">Assign sections to student registrations that don't have a section yet. Students register for courses only; the admin assigns sections.</p>
+            </div>
+
+            {unassignedRegs.length === 0 ? (
+              <div className="glass-card text-center py-8">
+                <p className="text-text-muted">✅ All registrations have sections assigned.</p>
+              </div>
+            ) : (
+              <div className="glass-card overflow-x-auto !p-0">
+                <div className="px-4 py-3 border-b border-white/10">
+                  <h4 className="font-semibold text-text-main">Unassigned Registrations ({unassignedRegs.length})</h4>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left text-text-muted">
+                      <th className="px-4 py-3">Student</th>
+                      <th className="px-4 py-3">Course</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Assign Section</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unassignedRegs.map((reg) => (
+                      <tr key={reg.REGISTRATION_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-2">
+                          <span className="font-mono text-primary-light text-xs">{reg.ENROLLMENT_NUMBER}</span>
+                          <span className="ml-2 text-text-main">{reg.FIRST_NAME} {reg.LAST_NAME}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className="font-semibold text-text-main">{reg.COURSE_CODE}</span>
+                          <span className="ml-1 text-text-muted text-xs">{reg.COURSE_NAME}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className={`badge ${reg.STATUS === 'ACTIVE' ? 'badge-present' : 'badge-pending'}`}>{reg.STATUS}</span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <select
+                              className="input-field !py-1 !px-2 !mb-0 text-xs min-w-[120px] appearance-none bg-surface"
+                              defaultValue=""
+                              onChange={(e) => handleAssignSection(reg.REGISTRATION_ID, e.target.value)}
+                              disabled={assignLoading === reg.REGISTRATION_ID}
+                            >
+                              <option value="" disabled>Select section</option>
+                              {(sectionOptions[reg.COURSE_ID] || []).map(sec => (
+                                <option key={sec.SECTION_ID} value={sec.SECTION_ID}>Sec {sec.SECTION_NAME} - {sec.ROOM || 'TBA'}</option>
+                              ))}
+                            </select>
+                            {assignLoading === reg.REGISTRATION_ID && <span className="text-xs text-text-muted">Assigning...</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -892,15 +1007,10 @@ export default function AdminDashboard() {
                   {departments.map(d => <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Admission Year</label>
-                  <input type="number" min="2000" max="2100" className="input-field" value={newStudent.admissionYear} onChange={(e) => setNewStudent({ ...newStudent, admissionYear: e.target.value })} required />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-text-muted">Enrollment Year</label>
-                  <input type="number" min="2000" max="2100" className="input-field" value={newStudent.enrollmentYear} onChange={(e) => setNewStudent({ ...newStudent, enrollmentYear: e.target.value })} required />
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-muted">Admission Year</label>
+                <input type="number" min="2000" max="2100" className="input-field" value={newStudent.admissionYear} onChange={(e) => setNewStudent({ ...newStudent, admissionYear: e.target.value })} required />
+                <p className="text-xs text-text-muted mt-1">📌 Enrollment number (e.g. BT23CSE001) will be auto-generated</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

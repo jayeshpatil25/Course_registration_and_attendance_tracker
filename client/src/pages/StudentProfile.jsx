@@ -36,10 +36,10 @@ export default function StudentProfile() {
 
               <div className="mt-6 grid grid-cols-2 gap-4 text-left">
                 {[
-                  { label: 'Student ID', value: profile.STUDENT_ID },
-                  { label: 'Department', value: profile.DEPT_NAME },
+                  { label: 'Enrollment Number', value: profile.ENROLLMENT_NUMBER || '—' },
+                  { label: 'Department', value: `${profile.DEPT_NAME} (${profile.DEPT_CODE || ''})` },
                   { label: 'College', value: 'VNIT — Visvesvaraya National Institute of Technology' },
-                  { label: 'Enrollment Year', value: profile.ENROLLMENT_YEAR },
+                  { label: 'Admission Year', value: profile.ADMISSION_YEAR },
                   { label: 'Current Semester', value: profile.SEMESTER },
                   { label: 'Phone', value: profile.PHONE || '—' },
                 ].map((item, i) => (

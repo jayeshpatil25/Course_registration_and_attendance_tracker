@@ -73,16 +73,27 @@ router.get('/instructors', verifyToken, async (_req, res) => {
   }
 });
 
-// GET /api/lookup/courses?deptId=&semester=
-// If semester is provided, only return courses that have sections in that semester
+// GET /api/lookup/courses?deptId=&semester=&studentId=
+// If studentId is provided, compute student's current semester and filter via COURSE_OFFERED_SEMESTER
+// If semester (session_code) is provided, filter courses that have sections in that session
 router.get('/courses', verifyToken, async (req, res) => {
-  const { deptId, semester } = req.query;
+  const { deptId, semester, studentId } = req.query;
   let conn;
   try {
     conn = await db.getConnection();
     let sql, binds = {};
 
-    if (semester) {
+    if (studentId) {
+      // Compute student's current semester number, then return courses offered in that semester
+      sql = `SELECT DISTINCT c.course_id, c.course_code, c.course_name, c.credits, c.dept_id, c.course_type
+             FROM COURSE c
+             JOIN COURSE_OFFERED_SEMESTER cos ON cos.course_id = c.course_id
+             WHERE cos.semester_number = CALC_STUDENT_SEMESTER(
+               (SELECT admission_year FROM STUDENT WHERE student_id = :studentId),
+               (SELECT session_code FROM ACTIVE_SEMESTER WHERE id = 1)
+             )`;
+      binds.studentId = Number(studentId);
+    } else if (semester) {
       sql = `SELECT DISTINCT c.course_id, c.course_code, c.course_name, c.credits, c.dept_id, c.course_type
              FROM COURSE c
              JOIN SECTION s ON s.course_id = c.course_id AND s.session_code = :semester
@@ -222,15 +233,15 @@ router.get('/student-course-details/:studentId', verifyToken, async (req, res) =
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT r.registration_id, r.section_id, r.session_code AS semester, r.status, r.registered_at,
-              s.section_name, s.room, s.schedule,
+      `SELECT r.registration_id, r.course_id, r.section_id, r.session_code AS semester, r.status, r.registered_at,
               c.course_code, c.course_name, c.credits, c.course_type,
+              s.section_name, s.room, s.schedule,
               sci.first_name || ' ' || sci.last_name AS section_coordinator,
               b.batch_id, b.batch_name,
               bci.first_name || ' ' || bci.last_name AS batch_coordinator
        FROM REGISTRATION r
-       JOIN SECTION s ON s.section_id = r.section_id
-       JOIN COURSE  c ON c.course_id  = s.course_id
+       JOIN COURSE  c ON c.course_id  = r.course_id
+       LEFT JOIN SECTION s ON s.section_id = r.section_id
        LEFT JOIN SECTION_COORDINATOR sc ON sc.section_id = s.section_id
        LEFT JOIN INSTRUCTOR sci ON sci.instructor_id = sc.instructor_id
        LEFT JOIN BATCH b ON b.section_id = s.section_id
@@ -257,10 +268,10 @@ router.get('/student-profile/:studentId', verifyToken, async (req, res) => {
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT s.student_id, s.first_name, s.last_name, s.email, s.enrollment_year, s.admission_year,
+      `SELECT s.student_id, s.enrollment_number, s.first_name, s.last_name, s.email, s.admission_year,
               CALC_STUDENT_SEMESTER(s.admission_year, (SELECT session_code FROM ACTIVE_SEMESTER WHERE id = 1)) AS semester,
               s.phone,
-              d.dept_name, s.fa_id,
+              d.dept_name, d.dept_code, s.fa_id,
               fi.first_name || ' ' || fi.last_name AS fa_name
        FROM STUDENT s
        JOIN DEPT d ON d.dept_id = s.dept_id
@@ -329,7 +340,7 @@ router.get('/fa-students/:instructorId', verifyToken, async (req, res) => {
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT s.student_id, s.first_name, s.last_name, s.email, s.enrollment_year, s.admission_year,
+      `SELECT s.student_id, s.enrollment_number, s.first_name, s.last_name, s.email, s.admission_year,
               CALC_STUDENT_SEMESTER(s.admission_year, (SELECT session_code FROM ACTIVE_SEMESTER WHERE id = 1)) AS semester,
               d.dept_name
        FROM STUDENT s

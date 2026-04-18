@@ -82,10 +82,14 @@ async function run() {
       { n: 'VNIT - Visvesvaraya National Institute of Technology', a: 'South Ambazari Road, Nagpur 440010', e: 'admin@vnit.ac.in' }
     );
 
-    // Departments
-    const csDept = await ins(`INSERT INTO DEPT (dept_name, college_id) VALUES (:n, :c) RETURNING dept_id INTO :id`, { n: 'Computer Science & Engineering', c: collegeId });
-    const ecDept = await ins(`INSERT INTO DEPT (dept_name, college_id) VALUES (:n, :c) RETURNING dept_id INTO :id`, { n: 'Electronics & Communication Engineering', c: collegeId });
-    console.log(`  ✓ Departments`);
+    // Departments (with dept_code for enrollment number generation)
+    const csDept = await ins(`INSERT INTO DEPT (dept_name, dept_code, college_id) VALUES (:n, :dc, :c) RETURNING dept_id INTO :id`, { n: 'Computer Science & Engineering', dc: 'CSE', c: collegeId });
+    const ecDept = await ins(`INSERT INTO DEPT (dept_name, dept_code, college_id) VALUES (:n, :dc, :c) RETURNING dept_id INTO :id`, { n: 'Electronics & Communication Engineering', dc: 'ECE', c: collegeId });
+    // Build dept_code lookup
+    const deptCodeMap = {};
+    deptCodeMap[csDept] = 'CSE';
+    deptCodeMap[ecDept] = 'ECE';
+    console.log(`  ✓ Departments (with dept_code: CSE, ECE)`);
 
     // Instructors
     const facultyNames = [
@@ -143,30 +147,55 @@ async function run() {
       { fullName: 'Tanushree', admissionYear: 2024 },
     ];
 
+    // Track enrollment number counters per year+dept: { '23CSE': 1, '24CSE': 2, ... }
+    const enrollCounters = {};
+    function generateEnrollmentNumber(admissionYear, deptId) {
+      const yearSuffix = String(admissionYear).slice(-2); // '23', '24', '25'
+      const deptCode = deptCodeMap[deptId] || 'GEN';
+      const key = `${yearSuffix}${deptCode}`;
+      enrollCounters[key] = (enrollCounters[key] || 0) + 1;
+      const rollNum = String(enrollCounters[key]).padStart(3, '0');
+      return `BT${yearSuffix}${deptCode}${rollNum}`;
+    }
+
+    const seededStudents = []; // collect for later registration seeding
     let studentCount = 0;
     for (const s of studentsToSeed) {
       const parts = s.fullName.trim().split(/\s+/);
       const firstName = parts[0];
       const lastName = parts.slice(1).join(' ') || '-';
       const email = `${firstName.toLowerCase()}@unitrack.edu`;
+      const enrollNum = generateEnrollmentNumber(s.admissionYear, csDept);
 
-      await ins(
-        `INSERT INTO STUDENT (first_name, last_name, email, password_hash, dept_id, enrollment_year, admission_year, phone, dob, fa_id)
-         VALUES (:f, :l, :e, :p, :d, :ey, :ay, NULL, NULL, NULL)
+      const studentId = await ins(
+        `INSERT INTO STUDENT (enrollment_number, first_name, last_name, email, password_hash, dept_id, admission_year, phone, dob, fa_id)
+         VALUES (:en, :f, :l, :e, :p, :d, :ay, NULL, NULL, NULL)
          RETURNING student_id INTO :id`,
         {
+          en: enrollNum,
           f: firstName,
           l: lastName,
           e: email,
           p: passHash,
           d: csDept,
-          ey: s.admissionYear,
           ay: s.admissionYear,
         }
       );
+      seededStudents.push({ studentId, admissionYear: s.admissionYear, fullName: s.fullName, enrollNum });
       studentCount++;
     }
-    console.log(`  ✓ Students (${studentCount})`);
+    console.log(`  ✓ Students (${studentCount}) with enrollment numbers`);
+
+    // Assign Batch Coordinators (FA) — 4 students per faculty, using first 4 faculty
+    const faFaculty = faculty.slice(0, 4); // first 4 faculty as batch coordinators
+    for (let i = 0; i < seededStudents.length; i++) {
+      const fa = faFaculty[Math.floor(i / 4) % faFaculty.length];
+      await conn.execute(
+        `UPDATE STUDENT SET fa_id = :fid WHERE student_id = :sid`,
+        { fid: fa.instructorId, sid: seededStudents[i].studentId }
+      );
+    }
+    console.log(`  ✓ Batch Coordinators assigned (${faFaculty.length} faculty, ~4 students each)`);
 
     // Courses
     const coursesBySemester = [
@@ -316,8 +345,54 @@ async function run() {
     // Batches
     console.log(`  ✓ Batches (Skipped for custom reload)`);
 
-    // Registrations
-    console.log(`  ✓ Registrations (Skipped for custom reload)`);
+    // ── Registrations — assign each student to courses for their semester ──
+    // Compute each student's semester: ODD term → 2*(year - admission) + 1
+    // Active session is ODD-2025, so session_year=2025, term=ODD
+    const activeSessionYear = 2025;
+    const activeTerm = 'ODD';
+    let regCount = 0;
+
+    for (const stu of seededStudents) {
+      const studentSemester = activeTerm === 'ODD'
+        ? (2 * (activeSessionYear - stu.admissionYear)) + 1
+        : (2 * (activeSessionYear - stu.admissionYear));
+
+      if (studentSemester < 1 || studentSemester > 8) continue;
+
+      // Find courses offered in this semester
+      const coursesForSem = coursesBySemester.find(s => s.semester === studentSemester);
+      if (!coursesForSem) continue;
+
+      for (const c of coursesForSem.courses) {
+        const courseId = courseIdByCode.get(c.code);
+        if (!courseId) continue;
+
+        const sessionCode = sessionCodeForSemester(studentSemester);
+        // Assign section A to odd-indexed students, B to even-indexed
+        // Find the section for this course + session
+        const secResult = await conn.execute(
+          `SELECT section_id, section_name FROM SECTION
+           WHERE course_id = :cid AND session_code = :scode
+           ORDER BY section_name`,
+          { cid: courseId, scode: sessionCode },
+          { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        if (secResult.rows.length === 0) continue;
+
+        // Distribute: first half of students get section A, second half get section B
+        const stuIdx = seededStudents.indexOf(stu);
+        const secIdx = stuIdx % secResult.rows.length;
+        const assignedSection = secResult.rows[secIdx];
+
+        await conn.execute(
+          `INSERT INTO REGISTRATION (student_id, course_id, section_id, session_code, status, approval_status)
+           VALUES (:sid, :cid, :secid, :scode, 'ACTIVE', 'APPROVED')`,
+          { sid: stu.studentId, cid: courseId, secid: assignedSection.SECTION_ID, scode: sessionCode }
+        );
+        regCount++;
+      }
+    }
+    console.log(`  ✓ Registrations (${regCount}) — students assigned to semester courses with sections`);
 
     // Sample attendance
     console.log('  ✓ Sample attendance (Skipped for custom reload)');

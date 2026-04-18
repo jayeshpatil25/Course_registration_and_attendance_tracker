@@ -520,9 +520,9 @@ export default function FacultyDashboard() {
 
                 <div className="mb-4 grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Student ID', value: studentDetail.profile.STUDENT_ID },
+                    { label: 'Enrollment Number', value: studentDetail.profile.ENROLLMENT_NUMBER || '—' },
                     { label: 'Department', value: studentDetail.profile.DEPT_NAME },
-                    { label: 'Enrollment Year', value: studentDetail.profile.ENROLLMENT_YEAR },
+                    { label: 'Admission Year', value: studentDetail.profile.ADMISSION_YEAR },
                     { label: 'Current Semester', value: studentDetail.profile.SEMESTER },
                     { label: 'Batch Coordinator', value: studentDetail.profile.FA_NAME || '—' },
                     { label: 'Phone', value: studentDetail.profile.PHONE || '—' },

@@ -160,22 +160,35 @@ router.put('/semester', verifyToken, authorize('admin'), async (req, res) => {
   }
 });
 
-// GET /api/admin/courses — all courses with their sections/semesters
+// GET /api/admin/courses — courses with sections for the active semester
 router.get('/courses', verifyToken, authorize('admin'), async (_req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
+    // Get active semester
+    const semResult = await conn.execute(
+      `SELECT session_code FROM ACTIVE_SEMESTER WHERE id = 1`,
+      [], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    const activeSem = semResult.rows.length > 0 ? semResult.rows[0].SESSION_CODE : null;
+
     const result = await conn.execute(
       `SELECT c.course_id, c.course_code, c.course_name, c.credits, c.course_type, d.dept_name,
               s.section_id, s.section_name, s.session_code AS semester, s.target_semester, s.room, s.schedule,
               CASE WHEN i.instructor_id IS NULL THEN NULL ELSE i.first_name || ' ' || i.last_name END AS coordinator
        FROM COURSE c
        JOIN DEPT d ON d.dept_id = c.dept_id
-       LEFT JOIN SECTION s ON s.course_id = c.course_id
+       LEFT JOIN SECTION s ON s.course_id = c.course_id AND (:sem IS NULL OR s.session_code = :sem)
        LEFT JOIN SECTION_COORDINATOR sc ON sc.section_id = s.section_id
        LEFT JOIN INSTRUCTOR i ON i.instructor_id = sc.instructor_id
+       WHERE EXISTS (
+         SELECT 1 FROM COURSE_OFFERED_SEMESTER cos
+         JOIN ACADEMIC_SESSION acs ON acs.session_code = cos.session_code
+         WHERE cos.course_id = c.course_id
+         AND (:sem2 IS NULL OR cos.session_code = :sem2)
+       )
        ORDER BY c.course_code, s.session_code, s.section_name`,
-      [],
+      { sem: activeSem, sem2: activeSem },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     return res.json(result.rows);
@@ -195,11 +208,12 @@ router.get('/registrations', verifyToken, authorize('admin'), async (_req, res) 
     const result = await conn.execute(
       `SELECT r.registration_id, r.status, r.approval_status, r.session_code AS semester,
               st.first_name || ' ' || st.last_name AS student_name,
-              c.course_code, c.course_type, s.section_name
+              c.course_code, c.course_type,
+              CASE WHEN s.section_id IS NULL THEN 'Pending' ELSE s.section_name END AS section_name
        FROM REGISTRATION r
        JOIN STUDENT st ON st.student_id = r.student_id
-       JOIN SECTION s ON s.section_id = r.section_id
-       JOIN COURSE c ON c.course_id = s.course_id
+       JOIN COURSE c ON c.course_id = r.course_id
+       LEFT JOIN SECTION s ON s.section_id = r.section_id
        ORDER BY r.registered_at DESC`,
       [],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -393,9 +407,9 @@ router.get('/students', verifyToken, authorize('admin'), async (_req, res) => {
   try {
     conn = await db.getConnection();
     const result = await conn.execute(
-      `SELECT s.student_id, s.first_name, s.last_name, s.email, s.enrollment_year, s.admission_year,
+      `SELECT s.student_id, s.enrollment_number, s.first_name, s.last_name, s.email, s.admission_year,
               CALC_STUDENT_SEMESTER(s.admission_year, (SELECT session_code FROM ACTIVE_SEMESTER WHERE id = 1)) AS semester,
-              d.dept_name, s.fa_id,
+              d.dept_name, d.dept_code, s.fa_id,
               CASE WHEN fi.instructor_id IS NULL THEN NULL ELSE fi.first_name || ' ' || fi.last_name END AS fa_name
        FROM STUDENT s
        JOIN DEPT d ON d.dept_id = s.dept_id
@@ -414,10 +428,11 @@ router.get('/students', verifyToken, authorize('admin'), async (_req, res) => {
 });
 
 // POST /api/admin/students — create a new student (password defaults to password123)
+// Auto-generates enrollment_number in format BT{YY}{DEPT_CODE}{NNN}
 router.post('/students', verifyToken, authorize('admin'), async (req, res) => {
-  const { firstName, lastName, email, deptId, enrollmentYear, admissionYear, phone, dob } = req.body;
-  if (!firstName || !lastName || !deptId || !enrollmentYear || !admissionYear) {
-    return res.status(400).json({ error: 'firstName, lastName, deptId, enrollmentYear, admissionYear are required.' });
+  const { firstName, lastName, email, deptId, admissionYear, phone, dob } = req.body;
+  if (!firstName || !lastName || !deptId || !admissionYear) {
+    return res.status(400).json({ error: 'firstName, lastName, deptId, admissionYear are required.' });
   }
 
   let conn;
@@ -425,22 +440,49 @@ router.post('/students', verifyToken, authorize('admin'), async (req, res) => {
     conn = await db.getConnection();
     const passHash = await bcrypt.hash('password123', 10);
 
+    // Get dept_code for enrollment number
+    const deptResult = await conn.execute(
+      `SELECT dept_code FROM DEPT WHERE dept_id = :did`,
+      { did: Number(deptId) },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    if (deptResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Department not found.' });
+    }
+    const deptCode = deptResult.rows[0].DEPT_CODE;
+    const yearSuffix = String(admissionYear).slice(-2);
+
+    // Find the next roll number for this year+dept combination
+    const maxResult = await conn.execute(
+      `SELECT MAX(enrollment_number) AS max_enroll FROM STUDENT
+       WHERE enrollment_number LIKE :pattern`,
+      { pattern: `BT${yearSuffix}${deptCode}%` },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    let nextNum = 1;
+    if (maxResult.rows[0].MAX_ENROLL) {
+      const existing = maxResult.rows[0].MAX_ENROLL;
+      const numPart = existing.slice(-3);
+      nextNum = parseInt(numPart, 10) + 1;
+    }
+    const enrollmentNumber = `BT${yearSuffix}${deptCode}${String(nextNum).padStart(3, '0')}`;
+
     const requestedEmail = email
       ? String(email).trim().toLowerCase()
       : `${String(firstName).trim().toLowerCase()}@unitrack.edu`;
     const studentEmail = await makeUniqueEmail(conn, 'STUDENT', requestedEmail);
 
     const result = await conn.execute(
-      `INSERT INTO STUDENT (first_name, last_name, email, password_hash, dept_id, enrollment_year, admission_year, phone, dob)
-       VALUES (:f, :l, :e, :p, :d, :ey, :ay, :ph, :dob)
+      `INSERT INTO STUDENT (enrollment_number, first_name, last_name, email, password_hash, dept_id, admission_year, phone, dob)
+       VALUES (:en, :f, :l, :e, :p, :d, :ay, :ph, :dob)
        RETURNING student_id INTO :id`,
       {
+        en: enrollmentNumber,
         f: String(firstName).trim(),
         l: String(lastName).trim(),
         e: studentEmail,
         p: passHash,
         d: Number(deptId),
-        ey: Number(enrollmentYear),
         ay: Number(admissionYear),
         ph: phone ? String(phone).trim() : null,
         dob: dob ? new Date(dob) : null,
@@ -448,10 +490,15 @@ router.post('/students', verifyToken, authorize('admin'), async (req, res) => {
       },
       { autoCommit: true }
     );
-    return res.status(201).json({ message: 'Student created successfully.', studentId: result.outBinds.id[0], email: studentEmail });
+    return res.status(201).json({
+      message: 'Student created successfully.',
+      studentId: result.outBinds.id[0],
+      email: studentEmail,
+      enrollmentNumber
+    });
   } catch (err) {
     console.error('Create student error:', err);
-    if (err.errorNum === 1) return res.status(409).json({ error: 'Student email already exists.' });
+    if (err.errorNum === 1) return res.status(409).json({ error: 'Student email or enrollment number already exists.' });
     return res.status(500).json({ error: 'Internal server error.' });
   } finally {
     if (conn) await conn.close();
@@ -657,6 +704,85 @@ router.put('/bulk-assign-fa', verifyToken, authorize('admin'), async (req, res) 
   } catch (err) {
     console.error('Bulk assign FA error:', err);
     try { if (conn) await conn.execute('ROLLBACK'); } catch (_) {}
+    return res.status(500).json({ error: 'Internal server error.' });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// ────────────────────────────────────────────────────────────
+// GET /api/admin/unassigned-registrations — registrations without a section
+// ────────────────────────────────────────────────────────────
+router.get('/unassigned-registrations', verifyToken, authorize('admin'), async (_req, res) => {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const result = await conn.execute(
+      `SELECT r.registration_id, r.student_id, r.course_id, r.session_code AS semester, r.status, r.approval_status,
+              st.enrollment_number, st.first_name, st.last_name,
+              c.course_code, c.course_name, c.course_type
+       FROM REGISTRATION r
+       JOIN STUDENT st ON st.student_id = r.student_id
+       JOIN COURSE c ON c.course_id = r.course_id
+       WHERE r.section_id IS NULL
+         AND r.status NOT IN ('DROPPED', 'REJECTED', 'CANCELLED')
+       ORDER BY st.enrollment_number, c.course_code`,
+      [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('Unassigned registrations error:', err);
+    return res.status(500).json({ error: 'Internal server error.' });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// ────────────────────────────────────────────────────────────
+// PUT /api/admin/assign-section — assign a section to a registration
+// ────────────────────────────────────────────────────────────
+router.put('/assign-section', verifyToken, authorize('admin'), async (req, res) => {
+  const { registrationId, sectionId } = req.body;
+  if (!registrationId || !sectionId) {
+    return res.status(400).json({ error: 'registrationId and sectionId are required.' });
+  }
+
+  let conn;
+  try {
+    conn = await db.getConnection();
+
+    // Verify the section belongs to the same course as the registration
+    const regResult = await conn.execute(
+      `SELECT course_id, section_id FROM REGISTRATION WHERE registration_id = :rid`,
+      { rid: Number(registrationId) },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    if (regResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Registration not found.' });
+    }
+    const regCourseId = regResult.rows[0].COURSE_ID;
+
+    const secResult = await conn.execute(
+      `SELECT course_id FROM SECTION WHERE section_id = :sid`,
+      { sid: Number(sectionId) },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    if (secResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found.' });
+    }
+    if (secResult.rows[0].COURSE_ID !== regCourseId) {
+      return res.status(400).json({ error: 'Section does not belong to the same course as the registration.' });
+    }
+
+    await conn.execute(
+      `UPDATE REGISTRATION SET section_id = :sid WHERE registration_id = :rid`,
+      { sid: Number(sectionId), rid: Number(registrationId) },
+      { autoCommit: true }
+    );
+    return res.json({ message: 'Section assigned successfully.' });
+  } catch (err) {
+    console.error('Assign section error:', err);
     return res.status(500).json({ error: 'Internal server error.' });
   } finally {
     if (conn) await conn.close();

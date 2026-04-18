@@ -12,13 +12,12 @@ export default function StudentDashboard() {
   // Registration form
   const [showRegForm, setShowRegForm] = useState(false);
   const [courses, setCourses] = useState([]);
-  const [sections, setSections] = useState({});   // keyed by courseId
   const [semester, setSemester] = useState('');
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
 
-  // Multi-select cart: { sectionId -> { courseId, courseCode, courseName, courseType, sectionName, credits } }
+  // Multi-select cart: { courseId -> { courseId, courseCode, courseName, courseType, credits } }
   const [cart, setCart] = useState({});
 
   // Registration status summary
@@ -48,7 +47,7 @@ export default function StudentDashboard() {
       }
       setRegistrations(unique);
       const pctMap = {};
-      for (const reg of unique.filter((r) => r.STATUS === 'ACTIVE')) {
+      for (const reg of unique.filter((r) => r.STATUS === 'ACTIVE' && r.SECTION_ID)) {
         try {
           const res = await api.get(`/attendance/percentage/${user.id}/${reg.SECTION_ID}`);
           pctMap[reg.SECTION_ID] = res.data.percentage;
@@ -80,50 +79,37 @@ export default function StudentDashboard() {
     }).catch(console.error);
   }, []);
 
-  // Load courses filtered by semester
+  // Load courses filtered by student's semester
   useEffect(() => {
-    if (showRegForm && semester) {
-      api.get(`/lookup/courses?semester=${semester}`).then(({ data }) => setCourses(data)).catch(console.error);
+    if (showRegForm && user.id) {
+      api.get(`/lookup/courses?studentId=${user.id}`).then(({ data }) => setCourses(data)).catch(console.error);
     }
-  }, [showRegForm, semester]);
+  }, [showRegForm, user.id]);
 
-  // Load sections for a specific course
-  const loadSections = async (courseId) => {
-    if (sections[courseId]) return; // already loaded
-    try {
-      const { data } = await api.get(`/lookup/sections?courseId=${courseId}&semester=${semester}`);
-      setSections(prev => ({ ...prev, [courseId]: data }));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Cart management
-  const addToCart = (sectionId, course, section) => {
+  // Cart management — keyed by courseId
+  const addToCart = (course) => {
     setCart(prev => ({
       ...prev,
-      [sectionId]: {
+      [course.COURSE_ID]: {
         courseId: course.COURSE_ID,
         courseCode: course.COURSE_CODE,
         courseName: course.COURSE_NAME,
         courseType: course.COURSE_TYPE,
         credits: course.CREDITS,
-        sectionName: section.SECTION_NAME,
-        sectionId: section.SECTION_ID,
       }
     }));
   };
 
-  const removeFromCart = (sectionId) => {
+  const removeFromCart = (courseId) => {
     setCart(prev => {
       const next = { ...prev };
-      delete next[sectionId];
+      delete next[courseId];
       return next;
     });
   };
 
   const isCourseInCart = (courseId) => {
-    return Object.values(cart).some(c => c.courseId === courseId);
+    return !!cart[courseId];
   };
 
   // Count by type
@@ -133,12 +119,12 @@ export default function StudentDashboard() {
   const existingPractical = statusSummary?.practicalCount || 0;
 
   const handleBulkRegister = async () => {
-    const sectionIds = Object.keys(cart).map(Number);
-    if (sectionIds.length === 0) return;
+    const courseIds = Object.keys(cart).map(Number);
+    if (courseIds.length === 0) return;
 
     setRegError(''); setRegSuccess(''); setRegLoading(true);
     try {
-      const { data } = await api.post('/registration/bulk', { sectionIds });
+      const { data } = await api.post('/registration/bulk', { courseIds });
       setRegSuccess(data.message);
       setCart({});
       setShowRegForm(false);
@@ -355,11 +341,8 @@ export default function StudentDashboard() {
                         inCart={inCart}
                         disabled={disabled}
                         alreadyRegistered={alreadyRegistered}
-                        sections={sections[course.COURSE_ID]}
-                        onExpand={() => loadSections(course.COURSE_ID)}
-                        onSelect={(sec) => addToCart(sec.SECTION_ID, course, sec)}
-                        onDeselect={(secId) => removeFromCart(secId)}
-                        cart={cart}
+                        onAdd={() => addToCart(course)}
+                        onRemove={() => removeFromCart(course.COURSE_ID)}
                       />
                     );
                   })}
@@ -385,11 +368,8 @@ export default function StudentDashboard() {
                         inCart={inCart}
                         disabled={disabled}
                         alreadyRegistered={alreadyRegistered}
-                        sections={sections[course.COURSE_ID]}
-                        onExpand={() => loadSections(course.COURSE_ID)}
-                        onSelect={(sec) => addToCart(sec.SECTION_ID, course, sec)}
-                        onDeselect={(secId) => removeFromCart(secId)}
-                        cart={cart}
+                        onAdd={() => addToCart(course)}
+                        onRemove={() => removeFromCart(course.COURSE_ID)}
                       />
                     );
                   })}
@@ -407,11 +387,10 @@ export default function StudentDashboard() {
                 <h5 className="text-sm font-semibold text-text-main mb-2">Selected Courses ({Object.keys(cart).length})</h5>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {Object.values(cart).map(item => (
-                    <span key={item.sectionId} className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs">
+                    <span key={item.courseId} className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs">
                       <span className={`inline-block w-2 h-2 rounded-full ${item.courseType === 'THEORY' ? 'bg-primary' : 'bg-accent'}`}></span>
                       <strong className="text-text-main">{item.courseCode}</strong>
-                      <span className="text-text-muted">Sec {item.sectionName}</span>
-                      <button onClick={() => removeFromCart(item.sectionId)} className="ml-1 text-danger hover:text-danger/80">✕</button>
+                      <button onClick={() => removeFromCart(item.courseId)} className="ml-1 text-danger hover:text-danger/80">✕</button>
                     </span>
                   ))}
                 </div>
@@ -474,7 +453,7 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="mb-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-text-muted">
-                  <span>Section: <strong className="text-text-main">{reg.SECTION_NAME}</strong></span>
+                  <span>Section: <strong className="text-text-main">{reg.SECTION_NAME || 'Pending Assignment'}</strong></span>
                   <span>Credits: <strong className="text-text-main">{reg.CREDITS}</strong></span>
                   <span>Semester: <strong className="text-text-main">{reg.SEMESTER}</strong></span>
                   <span>Room: <strong className="text-text-main">{reg.ROOM || 'TBA'}</strong></span>
@@ -492,8 +471,8 @@ export default function StudentDashboard() {
                   )}
                 </div>
 
-                {/* Attendance Bar (only for ACTIVE) */}
-                {reg.STATUS === 'ACTIVE' && (
+                {/* Attendance Bar (only for ACTIVE with section assigned) */}
+                {reg.STATUS === 'ACTIVE' && reg.SECTION_ID && (
                   <div>
                     <div className="mb-1 flex items-center justify-between text-sm">
                       <span className="text-text-muted">Attendance</span>
@@ -512,7 +491,7 @@ export default function StudentDashboard() {
 
                 {/* Actions */}
                 <div className="mt-4 flex items-center gap-4">
-                  {reg.STATUS === 'ACTIVE' && (
+                  {reg.STATUS === 'ACTIVE' && reg.SECTION_ID && (
                     <button onClick={() => openAttendanceDetail(reg.SECTION_ID)} className="text-xs text-primary-light hover:underline">
                       📋 View Attendance
                     </button>
@@ -555,7 +534,7 @@ export default function StudentDashboard() {
                   <td><span className={`type-badge ${reg.COURSE_TYPE === 'PRACTICAL' ? 'practical' : 'theory'}`}>
                     {reg.COURSE_TYPE}
                   </span></td>
-                  <td>{reg.SECTION_NAME}</td>
+                  <td>{reg.SECTION_NAME || 'Pending'}</td>
                   <td>{reg.CREDITS}</td>
                   <td>{reg.STATUS}</td>
                 </tr>
@@ -641,27 +620,16 @@ export default function StudentDashboard() {
   );
 }
 
-// ── Sub-component: Course Selection Row ─────────────────
-function CourseSelectRow({ course, inCart, disabled, alreadyRegistered, sections, onExpand, onSelect, onDeselect, cart }) {
-  const [expanded, setExpanded] = useState(false);
-  const selectedSectionId = Object.keys(cart).find(sid => cart[sid]?.courseId === course.COURSE_ID);
-
-  const handleToggle = () => {
-    if (!expanded) {
-      onExpand();
-    }
-    setExpanded(!expanded);
-  };
-
+// ── Sub-component: Course Selection Row (no section selection) ──
+function CourseSelectRow({ course, inCart, disabled, alreadyRegistered, onAdd, onRemove }) {
   return (
     <div className={`rounded-xl border transition-all ${
       alreadyRegistered ? 'border-success/20 bg-success/5 opacity-60' :
       inCart ? 'border-primary/30 bg-primary/5' :
       'border-white/10 bg-white/[0.02] hover:border-white/20'
     }`}>
-      <div className="flex items-center justify-between px-4 py-3 cursor-pointer" onClick={handleToggle}>
+      <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
-          <span className={`text-lg ${expanded ? 'rotate-90' : ''} transition-transform duration-200`}>▸</span>
           <div>
             <span className="font-semibold text-text-main text-sm">{course.COURSE_CODE}</span>
             <span className="text-text-muted text-sm ml-2">{course.COURSE_NAME}</span>
@@ -672,49 +640,21 @@ function CourseSelectRow({ course, inCart, disabled, alreadyRegistered, sections
           {alreadyRegistered && (
             <span className="rounded-md bg-success/20 px-2 py-0.5 text-[10px] font-bold text-success">ALREADY REGISTERED</span>
           )}
-          {inCart && (
-            <span className="rounded-md bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary-light">SELECTED ✓</span>
+          {!alreadyRegistered && inCart && (
+            <button onClick={onRemove}
+              className="rounded-lg bg-danger/20 px-3 py-1 text-xs font-semibold text-danger hover:bg-danger/30 transition-all">
+              Remove ✕
+            </button>
+          )}
+          {!alreadyRegistered && !inCart && (
+            <button onClick={onAdd}
+              disabled={disabled}
+              className="rounded-lg bg-primary/20 px-3 py-1 text-xs font-semibold text-primary-light hover:bg-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+              + Add
+            </button>
           )}
         </div>
       </div>
-      
-      {expanded && !alreadyRegistered && (
-        <div className="border-t border-white/10 px-4 py-3 space-y-1.5">
-          {!sections ? (
-            <div className="skeleton h-8 rounded-lg" />
-          ) : sections.length === 0 ? (
-            <p className="text-xs text-text-muted">No sections available.</p>
-          ) : (
-            sections.map(sec => {
-              const isSelected = selectedSectionId === String(sec.SECTION_ID);
-              return (
-                <div key={sec.SECTION_ID} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-all ${
-                  isSelected ? 'bg-primary/15 border border-primary/30' : 'bg-white/5 hover:bg-white/10'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-text-main">Sec {sec.SECTION_NAME}</span>
-                    <span className="text-text-muted">{sec.ROOM || 'TBA'}</span>
-                    {sec.COORDINATOR_NAME && <span className="text-text-muted">• {sec.COORDINATOR_NAME}</span>}
-                    {sec.SCHEDULE && <span className="text-text-muted">• {sec.SCHEDULE}</span>}
-                  </div>
-                  {isSelected ? (
-                    <button onClick={(e) => { e.stopPropagation(); onDeselect(sec.SECTION_ID); }}
-                      className="rounded-lg bg-danger/20 px-3 py-1 font-semibold text-danger hover:bg-danger/30 transition-all">
-                      Deselect
-                    </button>
-                  ) : (
-                    <button onClick={(e) => { e.stopPropagation(); onSelect(sec); }}
-                      disabled={disabled || inCart}
-                      className="rounded-lg bg-primary/20 px-3 py-1 font-semibold text-primary-light hover:bg-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                      Select
-                    </button>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
     </div>
   );
 }
