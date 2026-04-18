@@ -21,7 +21,7 @@ export default function StudentProfile() {
       <main className="mx-auto max-w-2xl px-6 py-10">
         <div className="glass-card animate-fade-in-up text-center">
           {/* Avatar */}
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-3xl font-bold text-white shadow-lg">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-white shadow-md">
             {user.firstName?.[0]}{user.lastName?.[0]}
           </div>
 
@@ -43,7 +43,7 @@ export default function StudentProfile() {
                   { label: 'Current Semester', value: profile.SEMESTER },
                   { label: 'Phone', value: profile.PHONE || '—' },
                 ].map((item, i) => (
-                  <div key={i} className="rounded-xl bg-white/5 p-3">
+                  <div key={i} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
                     <p className="text-xs text-text-muted">{item.label}</p>
                     <p className="font-semibold text-text-main">{item.value}</p>
                   </div>

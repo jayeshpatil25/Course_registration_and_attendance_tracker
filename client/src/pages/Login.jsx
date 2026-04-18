@@ -31,26 +31,29 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-      {/* Decorative gradient orbs */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-primary/15 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-accent/15 blur-[120px]" />
-      </div>
+      {/* Subtle decorative strip at top */}
+      <div className="fixed top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-accent to-primary" />
 
       <div className="animate-fade-in-up relative w-full max-w-md">
         {/* Header */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-2xl font-bold text-white shadow-xl">
-            U
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-primary text-2xl font-bold text-white shadow-md">
+            V
           </div>
-          <h1 className="text-3xl font-bold text-text-main">UniTrack</h1>
-          <p className="mt-1 text-text-muted">Student Registration & Attendance Portal</p>
+          <h1 className="text-3xl font-bold text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>
+            UniTrack
+          </h1>
+          <p className="mt-1 text-text-muted text-sm">
+            Visvesvaraya National Institute of Technology, Nagpur
+          </p>
         </div>
 
         {/* Card */}
-        <div className="glass-card">
+        <div className="glass-card !shadow-md">
+          <h2 className="text-lg font-semibold text-text-main mb-5 text-center">Sign in to your account</h2>
+
           {/* Role Toggle */}
-          <div className="mb-6 flex overflow-hidden rounded-xl border border-white/10 bg-surface p-1">
+          <div className="mb-6 flex overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-1">
             {[{ key: 'student', label: 'Student' }, { key: 'instructor', label: 'Faculty' }, { key: 'admin', label: 'Admin' }].map((r) => (
               <button
                 key={r.key}
@@ -58,7 +61,7 @@ export default function Login() {
                 onClick={() => setRole(r.key)}
                 className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
                   role === r.key
-                    ? 'bg-gradient-to-r from-primary to-accent text-white shadow-md'
+                    ? 'bg-primary text-white shadow-sm'
                     : 'text-text-muted hover:text-text-main'
                 }`}
                 id={`role-toggle-${r.key}`}
@@ -78,7 +81,7 @@ export default function Login() {
                 id="email-input"
                 type="email"
                 className="input-field"
-                placeholder={role === 'student' ? 'student@university.edu' : role === 'instructor' ? 'faculty@university.edu' : 'admin@university.edu'}
+                placeholder={role === 'student' ? 'student@unitrack.edu' : role === 'instructor' ? 'faculty@unitrack.edu' : 'admin@unitrack.edu'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -100,7 +103,7 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="rounded-lg bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">
+              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-danger" role="alert">
                 {error}
               </div>
             )}
@@ -124,7 +127,7 @@ export default function Login() {
         </div>
 
         <p className="mt-6 text-center text-xs text-text-muted">
-          © 2025 UniTrack — University Academic Portal
+          © 2025 UniTrack — VNIT Nagpur Academic Portal
         </p>
       </div>
     </div>

@@ -39,37 +39,39 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/10 bg-surface/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+    <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-lg font-bold text-white shadow-lg">
-            U
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(user?.role === 'student' ? '/student' : user?.role === 'instructor' ? '/faculty' : '/admin')}>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-white shadow-sm">
+            V
           </div>
           <div>
-            <h1 className="text-lg font-bold leading-tight text-text-main">UniTrack</h1>
-            <p className="text-xs text-text-muted">VNIT Academic Portal</p>
+            <h1 className="text-lg font-bold leading-tight text-primary" style={{ fontFamily: "'Playfair Display', serif" }}>
+              UniTrack
+            </h1>
+            <p className="text-[11px] text-text-muted tracking-wide">VNIT Academic Portal</p>
           </div>
         </div>
 
         {/* Nav Links + Semester Badge */}
         {user && (
-          <div className="hidden items-center gap-6 md:flex">
+          <div className="hidden items-center gap-1 md:flex">
             {navLinks().map((link) => (
               <button
                 key={link.path}
                 onClick={() => navigate(link.path)}
-                className={`text-sm font-medium transition-colors ${
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                   location.pathname === link.path
-                    ? 'text-primary-light'
-                    : 'text-text-muted hover:text-text-main'
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-text-muted hover:bg-gray-100 hover:text-text-main'
                 }`}
               >
                 {link.label}
               </button>
             ))}
             {activeSemester && (
-              <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+              <span className="ml-3 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700">
                 📅 {activeSemester}
               </span>
             )}
@@ -78,17 +80,17 @@ export default function Navbar() {
 
         {/* User Info + Logout */}
         {user && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium text-text-main">
+              <p className="text-sm font-semibold text-text-main">
                 {user.firstName} {user.lastName}
               </p>
               <p className="text-xs capitalize text-text-muted">{user.role}</p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-light">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
               {user.firstName?.[0]}{user.lastName?.[0]}
             </div>
-            <button onClick={handleLogout} className="btn-ghost text-sm" id="logout-btn">
+            <button onClick={handleLogout} className="btn-ghost !py-2 !px-3 text-sm" id="logout-btn">
               Logout
             </button>
           </div>

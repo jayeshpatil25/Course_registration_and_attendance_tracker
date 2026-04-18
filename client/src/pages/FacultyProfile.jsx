@@ -20,7 +20,7 @@ export default function FacultyProfile() {
       <Navbar />
       <main className="mx-auto max-w-2xl px-6 py-10">
         <div className="glass-card animate-fade-in-up text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-3xl font-bold text-white shadow-lg">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-white shadow-md">
             {user.firstName?.[0]}{user.lastName?.[0]}
           </div>
 
@@ -32,7 +32,7 @@ export default function FacultyProfile() {
             <>
               <h2 className="text-2xl font-bold text-text-main">{profile.FIRST_NAME} {profile.LAST_NAME}</h2>
               <p className="text-sm text-text-muted">{profile.EMAIL}</p>
-              <span className="mt-2 inline-block rounded-full bg-primary/20 px-3 py-1 text-xs font-semibold text-primary-light">{profile.DESIGNATION}</span>
+              <span className="mt-2 inline-block rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary">{profile.DESIGNATION}</span>
 
               <div className="mt-6 grid grid-cols-2 gap-4 text-left">
                 {[
@@ -43,7 +43,7 @@ export default function FacultyProfile() {
                   { label: 'Hire Date', value: profile.HIRE_DATE ? new Date(profile.HIRE_DATE).toLocaleDateString('en-IN') : '—' },
                   { label: 'Sections', value: profile.SECTION_COUNT || 0 },
                 ].map((item, i) => (
-                  <div key={i} className="rounded-xl bg-white/5 p-3">
+                  <div key={i} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
                     <p className="text-xs text-text-muted">{item.label}</p>
                     <p className="font-semibold text-text-main">{item.value}</p>
                   </div>

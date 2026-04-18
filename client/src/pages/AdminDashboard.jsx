@@ -350,8 +350,8 @@ export default function AdminDashboard() {
               onClick={() => setTab(t.key)}
               className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
                 tab === t.key
-                  ? 'bg-gradient-to-r from-primary to-accent text-white shadow-lg'
-                  : 'border border-white/15 text-text-muted hover:text-text-main'
+                  ? 'bg-primary text-white shadow-lg'
+                  : 'border border-gray-200 text-text-muted hover:text-text-main'
               }`}
             >
               {t.label}
@@ -372,7 +372,7 @@ export default function AdminDashboard() {
               </h3>
               
               {showAddSemester && (
-                <form onSubmit={handleAddSemester} className="mb-4 flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
+                <form onSubmit={handleAddSemester} className="mb-4 flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
                   <input 
                     type="text" 
                     placeholder="e.g. SUMMER-2026" 
@@ -393,8 +393,8 @@ export default function AdminDashboard() {
                     onClick={() => handleSetSemester(s.value)}
                     className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
                       activeSemester === s.value
-                        ? 'border-primary bg-primary/20 text-primary-light'
-                        : 'border-white/15 text-text-muted hover:border-primary-light hover:text-text-main'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-gray-200 text-text-muted hover:border-primary-light hover:text-text-main'
                     }`}
                   >
                     {s.label}
@@ -433,21 +433,21 @@ export default function AdminDashboard() {
               {Object.keys(courseGroups).length === 0 && <div className="glass-card text-center text-text-muted p-6">No courses established.</div>}
               {Object.values(courseGroups).map((cg) => (
                 <div key={cg.code} className="glass-card !p-4">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-text-main">{cg.code}</span>
                       <span className="text-sm font-medium text-text-muted">{cg.name}</span>
                       <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${
-                        cg.courseType === 'PRACTICAL' ? 'bg-accent/15 text-accent' : 'bg-primary/15 text-primary-light'
+                        cg.courseType === 'PRACTICAL' ? 'bg-amber-50 text-amber-700' : 'bg-primary/10 text-primary'
                       }`}>
                         {cg.courseType === 'PRACTICAL' ? '🔬 PRACTICAL' : '📖 THEORY'}
                       </span>
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs text-text-muted">
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-text-muted">
                         {cg.credits} credits
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-text-muted bg-white/5 px-2 py-1 rounded-md">{cg.dept}</span>
+                      <span className="text-xs text-text-muted bg-gray-50 px-2 py-1 rounded-md">{cg.dept}</span>
                       <button
                         onClick={() => {
                           const anyRow = cg.sections[0] || courses.find(c => c.COURSE_CODE === cg.code);
@@ -474,15 +474,15 @@ export default function AdminDashboard() {
                     {cg.sections.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {cg.sections.map((sec) => (
-                          <span key={sec.SECTION_ID} className="rounded-lg bg-surface px-3 py-1.5 text-xs text-text-muted border border-white/10 flex items-center gap-2">
-                            <span className="font-bold text-primary-light">Sec {sec.SECTION_NAME}</span> 
+                          <span key={sec.SECTION_ID} className="rounded-lg bg-surface px-3 py-1.5 text-xs text-text-muted border border-gray-200 flex items-center gap-2">
+                            <span className="font-bold text-primary">Sec {sec.SECTION_NAME}</span> 
                             <span>•</span> 
                             <span className="text-text-main">{sec.SEMESTER}</span>
                             <span>•</span>
                             <span>{sec.COORDINATOR || 'No coordinator'}</span>
                             <button
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSection(sec.SECTION_ID, cg.code, sec.SECTION_NAME); }}
-                              className="ml-2 rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-warning border border-white/10 hover:bg-white/10"
+                              className="ml-2 rounded-md bg-gray-50 px-2 py-0.5 text-[10px] text-warning border border-gray-200 hover:bg-gray-100"
                               title="Delete section"
                             >
                               🗑
@@ -506,7 +506,7 @@ export default function AdminDashboard() {
               <div className="glass-card overflow-x-auto !p-0 animate-fade-in-up">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-left text-text-muted">
+                    <tr className="border-b border-gray-200 text-left text-text-muted">
                       <th className="px-4 py-3">Student</th>
                       <th className="px-4 py-3">Course</th>
                       <th className="px-4 py-3">Type</th>
@@ -518,12 +518,12 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody>
                     {registrations.slice(0, 20).map((r, i) => (
-                      <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-2 text-text-main font-medium">{r.STUDENT_NAME}</td>
-                        <td className="px-4 py-2 text-primary-light font-bold">{r.COURSE_CODE}</td>
+                        <td className="px-4 py-2 text-primary font-bold">{r.COURSE_CODE}</td>
                         <td className="px-4 py-2">
                           <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                            r.COURSE_TYPE === 'PRACTICAL' ? 'bg-accent/20 text-accent' : 'bg-primary/20 text-primary-light'
+                            r.COURSE_TYPE === 'PRACTICAL' ? 'bg-amber-50 text-amber-700' : 'bg-primary/10 text-primary'
                           }`}>{r.COURSE_TYPE || 'THEORY'}</span>
                         </td>
                         <td className="px-4 py-2 text-text-muted">{r.SECTION_NAME}</td>
@@ -560,12 +560,12 @@ export default function AdminDashboard() {
 
             {/* Faculty Table */}
             <div className="glass-card overflow-x-auto !p-0">
-              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                 <h4 className="font-semibold text-text-main">Faculty ({adminInstructors.length})</h4>
               </div>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-text-muted">
+                  <tr className="border-b border-gray-200 text-left text-text-muted">
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Designation</th>
@@ -574,7 +574,7 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {adminInstructors.map((i) => (
-                    <tr key={i.INSTRUCTOR_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <tr key={i.INSTRUCTOR_ID} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-2 text-text-main font-medium">{i.FIRST_NAME} {i.LAST_NAME}</td>
                       <td className="px-4 py-2 text-text-muted">{i.EMAIL}</td>
                       <td className="px-4 py-2 text-text-muted">{i.DESIGNATION}</td>
@@ -597,12 +597,12 @@ export default function AdminDashboard() {
 
             {/* Students Table */}
             <div className="glass-card overflow-x-auto !p-0">
-              <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                 <h4 className="font-semibold text-text-main">Students ({students.length})</h4>
               </div>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-text-muted">
+                  <tr className="border-b border-gray-200 text-left text-text-muted">
                     <th className="px-4 py-3">Enrollment No.</th>
                     <th className="px-4 py-3">Student</th>
                     <th className="px-4 py-3">Email</th>
@@ -614,8 +614,8 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {students.map((s) => (
-                    <tr key={s.STUDENT_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-2 text-primary-light font-mono font-semibold">{s.ENROLLMENT_NUMBER || '-'}</td>
+                    <tr key={s.STUDENT_ID} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2 text-primary font-mono font-semibold">{s.ENROLLMENT_NUMBER || '-'}</td>
                       <td className="px-4 py-2 text-text-main font-medium">{s.FIRST_NAME} {s.LAST_NAME}</td>
                       <td className="px-4 py-2 text-text-muted">{s.EMAIL}</td>
                       <td className="px-4 py-2 text-text-muted">{s.DEPT_CODE || '-'}</td>
@@ -644,7 +644,7 @@ export default function AdminDashboard() {
         {tab === 'fa-assignment' && (
           <div className="animate-fade-in-up">
             <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-text-muted">
-              <p className="font-semibold text-primary-light mb-1">👨‍🏫 Batch Coordinator Assignment</p>
+              <p className="font-semibold text-primary mb-1">👨‍🏫 Batch Coordinator Assignment</p>
               <p className="text-xs">Assign Batch Coordinators to students. The Batch Coordinator will be responsible for approving course registrations. Select students and choose an instructor to assign.</p>
             </div>
 
@@ -664,7 +664,7 @@ export default function AdminDashboard() {
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-text-muted">
                     <input type="checkbox" checked={faFilter.unassignedOnly}
                       onChange={(e) => setFaFilter(prev => ({ ...prev, unassignedOnly: e.target.checked }))}
-                      className="w-4 h-4 rounded border-white/20 bg-white/5 accent-primary" />
+                      className="w-4 h-4 rounded border-gray-300 bg-gray-50 accent-primary" />
                     Unassigned only
                   </label>
                 </div>
@@ -694,12 +694,12 @@ export default function AdminDashboard() {
             <div className="glass-card overflow-x-auto !p-0">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-text-muted">
+                  <tr className="border-b border-gray-200 text-left text-text-muted">
                     <th className="px-4 py-3 w-10">
                       <input type="checkbox"
                         checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0}
                         onChange={(e) => e.target.checked ? selectAllFiltered() : setSelectedStudents([])}
-                        className="w-4 h-4 rounded border-white/20 bg-white/5 accent-primary cursor-pointer" />
+                        className="w-4 h-4 rounded border-gray-300 bg-gray-50 accent-primary cursor-pointer" />
                     </th>
                     <th className="px-4 py-3">Student</th>
                     <th className="px-4 py-3">Department</th>
@@ -710,14 +710,14 @@ export default function AdminDashboard() {
                 <tbody>
                   {filteredStudents.map((s) => (
                     <tr key={s.STUDENT_ID}
-                      className={`border-b border-white/5 transition-colors cursor-pointer ${
-                        selectedStudents.includes(s.STUDENT_ID) ? 'bg-primary/10' : 'hover:bg-white/5'
+                      className={`border-b border-gray-100 transition-colors cursor-pointer ${
+                        selectedStudents.includes(s.STUDENT_ID) ? 'bg-primary/10' : 'hover:bg-gray-50'
                       }`}
                       onClick={() => toggleStudent(s.STUDENT_ID)}>
                       <td className="px-4 py-2">
                         <input type="checkbox" checked={selectedStudents.includes(s.STUDENT_ID)}
                           onChange={() => toggleStudent(s.STUDENT_ID)}
-                          className="w-4 h-4 rounded border-white/20 bg-white/5 accent-primary cursor-pointer" />
+                          className="w-4 h-4 rounded border-gray-300 bg-gray-50 accent-primary cursor-pointer" />
                       </td>
                       <td className="px-4 py-2">
                         <p className="font-medium text-text-main">{s.FIRST_NAME} {s.LAST_NAME}</p>
@@ -727,9 +727,9 @@ export default function AdminDashboard() {
                       <td className="px-4 py-2 text-text-muted">{s.ENROLLMENT_NUMBER || '-'} / Sem {s.SEMESTER}</td>
                       <td className="px-4 py-2">
                         {s.FA_NAME ? (
-                          <span className="rounded-md bg-success/15 px-2 py-1 text-xs text-success font-semibold">{s.FA_NAME}</span>
+                          <span className="rounded-md bg-green-50 px-2 py-1 text-xs text-success font-semibold">{s.FA_NAME}</span>
                         ) : (
-                          <span className="rounded-md bg-warning/15 px-2 py-1 text-xs text-warning font-semibold">Not Assigned</span>
+                          <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-warning font-semibold">Not Assigned</span>
                         )}
                       </td>
                     </tr>
@@ -748,8 +748,8 @@ export default function AdminDashboard() {
         {/* ── Section Assignment Tab ────────────────────────── */}
         {tab === 'section-assignment' && (
           <div className="animate-fade-in-up">
-            <div className="mb-4 rounded-xl border border-accent/20 bg-accent/5 p-4 text-sm text-text-muted">
-              <p className="font-semibold text-accent mb-1">📋 Section Assignment</p>
+            <div className="mb-4 rounded-xl border border-amber-200 bg-accent/5 p-4 text-sm text-text-muted">
+              <p className="font-semibold text-amber-700 mb-1">📋 Section Assignment</p>
               <p className="text-xs">Assign sections to student registrations that don't have a section yet. Students register for courses only; the admin assigns sections.</p>
             </div>
 
@@ -759,12 +759,12 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="glass-card overflow-x-auto !p-0">
-                <div className="px-4 py-3 border-b border-white/10">
+                <div className="px-4 py-3 border-b border-gray-200">
                   <h4 className="font-semibold text-text-main">Unassigned Registrations ({unassignedRegs.length})</h4>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-left text-text-muted">
+                    <tr className="border-b border-gray-200 text-left text-text-muted">
                       <th className="px-4 py-3">Student</th>
                       <th className="px-4 py-3">Course</th>
                       <th className="px-4 py-3">Status</th>
@@ -773,9 +773,9 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody>
                     {unassignedRegs.map((reg) => (
-                      <tr key={reg.REGISTRATION_ID} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <tr key={reg.REGISTRATION_ID} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-2">
-                          <span className="font-mono text-primary-light text-xs">{reg.ENROLLMENT_NUMBER}</span>
+                          <span className="font-mono text-primary text-xs">{reg.ENROLLMENT_NUMBER}</span>
                           <span className="ml-2 text-text-main">{reg.FIRST_NAME} {reg.LAST_NAME}</span>
                         </td>
                         <td className="px-4 py-2">
@@ -813,8 +813,8 @@ export default function AdminDashboard() {
 
       {/* Add Course Modal */}
       {showCourseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-text-main">Add New Course</h3>
               <button onClick={() => setShowCourseModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
@@ -848,8 +848,8 @@ export default function AdminDashboard() {
                       onClick={() => setNewCourse({...newCourse, courseType: 'THEORY'})}
                       className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${
                         newCourse.courseType === 'THEORY'
-                          ? 'border-primary bg-primary/20 text-primary-light'
-                          : 'border-white/15 text-text-muted hover:border-white/30'
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-gray-200 text-text-muted hover:border-gray-300'
                       }`}>
                       📖 Theory
                     </button>
@@ -857,8 +857,8 @@ export default function AdminDashboard() {
                       onClick={() => setNewCourse({...newCourse, courseType: 'PRACTICAL'})}
                       className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${
                         newCourse.courseType === 'PRACTICAL'
-                          ? 'border-accent bg-accent/20 text-accent'
-                          : 'border-white/15 text-text-muted hover:border-white/30'
+                          ? 'border-accent bg-amber-50 text-amber-700'
+                          : 'border-gray-200 text-text-muted hover:border-gray-300'
                       }`}>
                       🔬 Practical
                     </button>
@@ -869,7 +869,7 @@ export default function AdminDashboard() {
                 <label className="mb-1.5 block text-sm font-medium text-text-muted">Description (Optional)</label>
                 <textarea className="input-field min-h-[80px] resize-none" placeholder="Course overview..." value={newCourse.description} onChange={(e) => setNewCourse({...newCourse, description: e.target.value})} maxLength={1000}></textarea>
               </div>
-              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+              <div className="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5">
                 <button type="button" onClick={() => setShowCourseModal(false)} className="btn-ghost">Cancel</button>
                 <button type="submit" className="btn-primary">Create Course</button>
               </div>
@@ -880,8 +880,8 @@ export default function AdminDashboard() {
 
       {/* Add Section Modal */}
       {showSectionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-text-main">Add New Section</h3>
               <button onClick={() => setShowSectionModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
@@ -919,7 +919,7 @@ export default function AdminDashboard() {
                   {instructors.map(inst => <option key={inst.INSTRUCTOR_ID} value={inst.INSTRUCTOR_ID}>{inst.INSTRUCTOR_NAME}</option>)}
                 </select>
               </div>
-              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+              <div className="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5">
                 <button type="button" onClick={() => setShowSectionModal(false)} className="btn-ghost">Cancel</button>
                 <button type="submit" className="btn-primary">Create Section</button>
               </div>
@@ -930,8 +930,8 @@ export default function AdminDashboard() {
 
       {/* Add Instructor Modal */}
       {showInstructorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-text-main">Add New Faculty</h3>
               <button onClick={() => setShowInstructorModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
@@ -968,7 +968,7 @@ export default function AdminDashboard() {
                   <input type="text" className="input-field" value={newInstructor.phone} onChange={(e) => setNewInstructor({ ...newInstructor, phone: e.target.value })} />
                 </div>
               </div>
-              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+              <div className="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5">
                 <button type="button" onClick={() => setShowInstructorModal(false)} className="btn-ghost">Cancel</button>
                 <button type="submit" className="btn-primary">Create Faculty</button>
               </div>
@@ -979,8 +979,8 @@ export default function AdminDashboard() {
 
       {/* Add Student Modal */}
       {showStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white shadow-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-text-main">Add New Student</h3>
               <button onClick={() => setShowStudentModal(false)} className="text-text-muted hover:text-white text-xl leading-none">&times;</button>
@@ -1022,7 +1022,7 @@ export default function AdminDashboard() {
                   <input type="date" className="input-field" value={newStudent.dob} onChange={(e) => setNewStudent({ ...newStudent, dob: e.target.value })} />
                 </div>
               </div>
-              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5">
+              <div className="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5">
                 <button type="button" onClick={() => setShowStudentModal(false)} className="btn-ghost">Cancel</button>
                 <button type="submit" className="btn-primary">Create Student</button>
               </div>

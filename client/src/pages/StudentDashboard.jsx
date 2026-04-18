@@ -166,7 +166,7 @@ export default function StudentDashboard() {
   };
 
   const statusBadge = (status) => {
-    const map = { PRESENT: 'badge-present', ABSENT: 'badge-absent', CANCELLED: 'bg-white/10 text-white border-white/20' };
+    const map = { PRESENT: 'badge-present', ABSENT: 'badge-absent', CANCELLED: 'bg-gray-100 text-white border-gray-300' };
     return map[status] || '';
   };
 
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
               <div>
                 <p className={`font-semibold ${
                   statusSummary.status === 'APPROVED' ? 'text-success' :
-                  statusSummary.status === 'PENDING' ? 'text-warning' : 'text-primary-light'
+                  statusSummary.status === 'PENDING' ? 'text-warning' : 'text-primary'
                 }`}>
                   Registration Status: {statusSummary.status === 'APPROVED' ? 'APPROVED' :
                     statusSummary.status === 'PENDING' ? 'PENDING — Awaiting Batch Coordinator Approval' :
@@ -293,13 +293,13 @@ export default function StudentDashboard() {
           <div className="glass-card mb-6 animate-fade-in-up">
             <div className="mb-4 flex items-center justify-between">
               <h4 className="font-semibold text-text-main">Sem. Course Registration</h4>
-              <span className="rounded-lg bg-primary/20 px-3 py-1 text-sm font-semibold text-primary-light">{semester}</span>
+              <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{semester}</span>
             </div>
 
             {/* Instructions Banner */}
-            <div className="mb-4 rounded-xl bg-white/5 border border-white/10 p-4 text-xs text-text-muted space-y-1">
+            <div className="mb-4 rounded-xl bg-gray-50 border border-gray-200 p-4 text-xs text-text-muted space-y-1">
               <p className="font-semibold text-text-main text-sm mb-2">📋 Registration Instructions</p>
-              <p>• Select your courses (max <strong className="text-primary-light">6 Theory</strong> + <strong className="text-accent">4 Practical</strong>)</p>
+              <p>• Select your courses (max <strong className="text-primary">6 Theory</strong> + <strong className="text-amber-700">4 Practical</strong>)</p>
               <p>• Consult your Batch Coordinator before finalizing.</p>
               <p>• Click <strong className="text-text-main">"APPLY FOR REGISTRATION"</strong> to submit all selected courses.</p>
               <p>• Your Batch Coordinator will review and approve your registration online.</p>
@@ -309,12 +309,12 @@ export default function StudentDashboard() {
             {/* Selection Counters */}
             <div className="mb-4 flex gap-4 items-center">
               <div className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold border ${
-                (existingTheory + cartTheory) > 6 ? 'border-danger/50 bg-danger/10 text-danger' : 'border-primary/30 bg-primary/10 text-primary-light'
+                (existingTheory + cartTheory) > 6 ? 'border-danger/50 bg-red-50 text-danger' : 'border-primary/30 bg-primary/10 text-primary'
               }`}>
                 📖 Theory: <strong>{existingTheory + cartTheory}</strong>/6
               </div>
               <div className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold border ${
-                (existingPractical + cartPractical) > 4 ? 'border-danger/50 bg-danger/10 text-danger' : 'border-accent/30 bg-accent/10 text-accent'
+                (existingPractical + cartPractical) > 4 ? 'border-danger/50 bg-red-50 text-danger' : 'border-accent/30 bg-accent/10 text-amber-700'
               }`}>
                 🔬 Practical: <strong>{existingPractical + cartPractical}</strong>/4
               </div>
@@ -326,7 +326,7 @@ export default function StudentDashboard() {
             {/* Course List — Theory */}
             {theoryCourses.length > 0 && (
               <div className="mb-4">
-                <h5 className="text-sm font-semibold text-primary-light mb-2 flex items-center gap-2">
+                <h5 className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
                   📖 Theory Courses ({theoryCourses.length})
                 </h5>
                 <div className="space-y-2">
@@ -353,7 +353,7 @@ export default function StudentDashboard() {
             {/* Course List — Practical */}
             {practicalCourses.length > 0 && (
               <div className="mb-4">
-                <h5 className="text-sm font-semibold text-accent mb-2 flex items-center gap-2">
+                <h5 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
                   🔬 Practical Courses ({practicalCourses.length})
                 </h5>
                 <div className="space-y-2">
@@ -387,7 +387,7 @@ export default function StudentDashboard() {
                 <h5 className="text-sm font-semibold text-text-main mb-2">Selected Courses ({Object.keys(cart).length})</h5>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {Object.values(cart).map(item => (
-                    <span key={item.courseId} className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs">
+                    <span key={item.courseId} className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs">
                       <span className={`inline-block w-2 h-2 rounded-full ${item.courseType === 'THEORY' ? 'bg-primary' : 'bg-accent'}`}></span>
                       <strong className="text-text-main">{item.courseCode}</strong>
                       <button onClick={() => removeFromCart(item.courseId)} className="ml-1 text-danger hover:text-danger/80">✕</button>
@@ -427,7 +427,7 @@ export default function StudentDashboard() {
                     <div className="flex items-center gap-2">
                       <h4 className="font-bold text-text-main">{reg.COURSE_CODE}</h4>
                       <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                        reg.COURSE_TYPE === 'PRACTICAL' ? 'bg-accent/20 text-accent' : 'bg-primary/20 text-primary-light'
+                        reg.COURSE_TYPE === 'PRACTICAL' ? 'bg-amber-50 text-amber-700' : 'bg-primary/10 text-primary'
                       }`}>
                         {reg.COURSE_TYPE === 'PRACTICAL' ? '🔬 PRAC' : '📖 THY'}
                       </span>
@@ -462,10 +462,10 @@ export default function StudentDashboard() {
 
                 <div className="mb-3 flex flex-wrap gap-2">
                   {reg.SECTION_COORDINATOR && (
-                    <span className="rounded-full bg-primary/15 px-3 py-1 text-xs text-primary-light">👨‍🏫 {reg.SECTION_COORDINATOR}</span>
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">👨‍🏫 {reg.SECTION_COORDINATOR}</span>
                   )}
                   {reg.BATCH_NAME && (
-                    <span className="rounded-full bg-accent/15 px-3 py-1 text-xs text-accent">
+                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">
                       🔬 {reg.BATCH_NAME}{reg.BATCH_COORDINATOR ? `: ${reg.BATCH_COORDINATOR}` : ''}
                     </span>
                   )}
@@ -480,8 +480,8 @@ export default function StudentDashboard() {
                         {attendanceMap[reg.SECTION_ID] != null ? `${attendanceMap[reg.SECTION_ID]}%` : '—'}
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-700" style={{ width: `${attendanceMap[reg.SECTION_ID] || 0}%` }} />
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${attendanceMap[reg.SECTION_ID] || 0}%` }} />
                     </div>
                     {attendanceMap[reg.SECTION_ID] != null && attendanceMap[reg.SECTION_ID] < 75 && (
                       <p className="mt-1 text-xs text-danger">⚠ Below 75% minimum attendance requirement</p>
@@ -492,7 +492,7 @@ export default function StudentDashboard() {
                 {/* Actions */}
                 <div className="mt-4 flex items-center gap-4">
                   {reg.STATUS === 'ACTIVE' && reg.SECTION_ID && (
-                    <button onClick={() => openAttendanceDetail(reg.SECTION_ID)} className="text-xs text-primary-light hover:underline">
+                    <button onClick={() => openAttendanceDetail(reg.SECTION_ID)} className="text-xs text-primary hover:underline">
                       📋 View Attendance
                     </button>
                   )}
@@ -559,7 +559,7 @@ export default function StudentDashboard() {
 
       {/* ── Attendance Detail Modal ─────────────────────── */}
       {showAttModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAttModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowAttModal(null)}>
           <div className="glass-card max-h-[80vh] w-full max-w-xl overflow-y-auto animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-text-main">Attendance Details</h3>
@@ -579,7 +579,7 @@ export default function StudentDashboard() {
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-left text-text-muted">
+                    <tr className="border-b border-gray-200 text-left text-text-muted">
                       <th className="pb-2">Date</th>
                       <th className="pb-2">Course</th>
                       <th className="pb-2 text-right">Status</th>
@@ -587,7 +587,7 @@ export default function StudentDashboard() {
                   </thead>
                   <tbody>
                     {attDetail.map((a, i) => (
-                      <tr key={i} className="border-b border-white/5">
+                      <tr key={i} className="border-b border-gray-100">
                         <td className="py-2 text-text-main">{new Date(a.ATTENDANCE_DATE).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                         <td className="py-2 text-text-muted">{a.COURSE_CODE} — {a.SECTION_NAME}</td>
                         <td className="py-2 text-right"><span className={`badge ${statusBadge(a.STATUS)}`}>{a.STATUS}</span></td>
@@ -603,7 +603,7 @@ export default function StudentDashboard() {
 
       {/* ── Drop Confirmation Modal ─────────────────────── */}
       {dropTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="glass-card w-full max-w-sm animate-fade-in-up text-center">
             <h3 className="mb-2 text-lg font-bold text-text-main">Request Drop</h3>
             <p className="mb-6 text-sm text-text-muted">Are you sure you want to request to drop this course? Batch Coordinator approval is required.</p>
@@ -624,9 +624,9 @@ export default function StudentDashboard() {
 function CourseSelectRow({ course, inCart, disabled, alreadyRegistered, onAdd, onRemove }) {
   return (
     <div className={`rounded-xl border transition-all ${
-      alreadyRegistered ? 'border-success/20 bg-success/5 opacity-60' :
+      alreadyRegistered ? 'border-green-200 bg-green-50/50 opacity-60' :
       inCart ? 'border-primary/30 bg-primary/5' :
-      'border-white/10 bg-white/[0.02] hover:border-white/20'
+      'border-gray-200 bg-white hover:border-gray-300'
     }`}>
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
@@ -638,18 +638,18 @@ function CourseSelectRow({ course, inCart, disabled, alreadyRegistered, onAdd, o
         </div>
         <div className="flex items-center gap-2">
           {alreadyRegistered && (
-            <span className="rounded-md bg-success/20 px-2 py-0.5 text-[10px] font-bold text-success">ALREADY REGISTERED</span>
+            <span className="rounded-md bg-green-50 px-2 py-0.5 text-[10px] font-bold text-success">ALREADY REGISTERED</span>
           )}
           {!alreadyRegistered && inCart && (
             <button onClick={onRemove}
-              className="rounded-lg bg-danger/20 px-3 py-1 text-xs font-semibold text-danger hover:bg-danger/30 transition-all">
+              className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-danger hover:bg-red-100 transition-all">
               Remove ✕
             </button>
           )}
           {!alreadyRegistered && !inCart && (
             <button onClick={onAdd}
               disabled={disabled}
-              className="rounded-lg bg-primary/20 px-3 py-1 text-xs font-semibold text-primary-light hover:bg-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+              className="rounded-lg bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
               + Add
             </button>
           )}
