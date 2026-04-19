@@ -41,6 +41,7 @@ export default function StudentProfile() {
                   { label: 'College', value: 'VNIT — Visvesvaraya National Institute of Technology' },
                   { label: 'Admission Year', value: profile.ADMISSION_YEAR },
                   { label: 'Current Semester', value: profile.SEMESTER },
+                  { label: 'Batch Coordinator', value: profile.FA_NAME || 'Not Assigned' },
                   { label: 'Phone', value: profile.PHONE || '—' },
                 ].map((item, i) => (
                   <div key={i} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
